@@ -59,6 +59,11 @@ def _configure_root_once() -> None:
     root.setLevel(settings.log_level)
     root.addHandler(_build_root_handler())
 
+    # ChromaDB's bundled posthog telemetry client has a known bug in some
+    # versions that logs a harmless error on every operation. We silence
+    # just this logger rather than suppressing errors app-wide.
+    logging.getLogger("chromadb.telemetry.product.posthog").setLevel(logging.CRITICAL)
+
 
 def get_logger(name: str) -> logging.Logger:
     """
