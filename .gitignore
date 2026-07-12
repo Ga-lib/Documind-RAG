@@ -1,0 +1,26 @@
+# Virtual environment
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Environment secrets
+.env
+
+# Data (runtime, not source)
+data/uploads/*
+data/vector_db/*
+!data/uploads/.gitkeep
+!data/vector_db/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
