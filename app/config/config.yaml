@@ -1,0 +1,43 @@
+# ============================================
+# DocuMind RAG - Application Configuration
+# Non-secret settings only. Secrets live in .env
+# ============================================
+
+app:
+  name: "DocuMind RAG"
+  version: "0.1.0"
+  environment: "development"  # development | production
+
+llm:
+  provider: "groq"
+  temperature: 0.1        # low temperature = more factual, less creative
+  max_tokens: 1024
+  timeout_seconds: 30
+
+embeddings:
+  model_name: "all-MiniLM-L6-v2"
+  batch_size: 32
+
+chunking:
+  strategy: "recursive"    # recursive | fixed
+  chunk_size: 1000
+  chunk_overlap: 200
+
+retrieval:
+  top_k: 4
+  search_type: "similarity"   # similarity | mmr
+  mmr_diversity: 0.5           # only used if search_type is mmr
+
+vector_store:
+  collection_name: "documind_documents"
+  persist_directory: "./data/vector_db"
+
+upload:
+  directory: "./data/uploads"
+  max_file_size_mb: 20
+  allowed_extensions:
+    - ".pdf"
+
+logging:
+  level: "INFO"     # DEBUG | INFO | WARNING | ERROR
+  format: "json"    # json | text
