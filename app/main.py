@@ -7,7 +7,7 @@ that Uvicorn serves.
 
 from fastapi import FastAPI
 
-from app.api.routes import documents, health
+from app.api.routes import ask, documents, health, upload
 from app.config.settings import settings
 from app.utils.logger import get_logger
 
@@ -21,6 +21,8 @@ app = FastAPI(
 
 app.include_router(health.router)
 app.include_router(documents.router)
+app.include_router(upload.router)
+app.include_router(ask.router)
 
 
 @app.on_event("startup")
