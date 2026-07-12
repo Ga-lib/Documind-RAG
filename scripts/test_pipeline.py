@@ -1,37 +1,34 @@
 """
-Manual end-to-end test script for the RAG pipeline.
+Manual end-to-end test script for the RAG pipeline, using the service layer.
 Run with: python scripts/test_pipeline.py
 """
 
 import sys
 from pathlib import Path
 
-# Add the project root (one level up from scripts/) to Python's import path,
-# so "from app..." imports work regardless of which directory this script
-# is run from.
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.rag.retriever.retriever import Retriever
-from app.rag.generator.generator import Generator
+from app.services.qa_service import QAService
+from app.services.document_service import DocumentService
 
 
 def main():
-    retriever = Retriever()
-    generator = Generator()
+    doc_service = DocumentService()
+    qa_service = QAService()
+
+    print("=== Indexed documents ===")
+    print(doc_service.list_documents())
+    print()
 
     question = "What machine learning projects has this person worked on?"
-    chunks = retriever.retrieve(question, top_k=3)
-    result = generator.generate(question, chunks)
+    answer, citations = qa_service.ask(question)
 
-    print()
     print("=== ANSWER ===")
-    print(result.answer)
+    print(answer)
     print()
-    print(f"=== SOURCES ({len(result.sources)}) ===")
-    for i, source in enumerate(result.sources, start=1):
-        filename = source.metadata.get("source_filename")
-        chunk_index = source.metadata.get("chunk_index")
-        print(f"Source {i}: {filename} (chunk {chunk_index})")
+    print(f"=== SOURCES ({len(citations)}) ===")
+    for c in citations:
+        print(f"Source {c.source_number}: {c.filename} (chunk {c.chunk_index}, distance={c.distance:.4f})")
 
 
 if __name__ == "__main__":
