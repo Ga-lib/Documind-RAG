@@ -16,12 +16,10 @@ async function checkHealth() {
   try {
     const res = await fetch(`${API_BASE}/health`);
     if (!res.ok) throw new Error("not ok");
-    statusDot.classList.add("online");
-    statusDot.classList.remove("offline");
+    statusDot.className = "w-2 h-2 rounded-full bg-neon pulse-dot";
     statusText.textContent = "Online";
   } catch {
-    statusDot.classList.add("offline");
-    statusDot.classList.remove("online");
+    statusDot.className = "w-2 h-2 rounded-full bg-red-500";
     statusText.textContent = "Offline";
   }
 }
@@ -35,22 +33,29 @@ async function loadDocuments() {
     docFilter.innerHTML = '<option value="">All documents</option>';
 
     if (!data.documents || data.documents.length === 0) {
-      docList.innerHTML = '<li class="doc-empty">No documents yet</li>';
+      docList.innerHTML = '<li class="text-sm italic text-gray-600">No documents yet</li>';
       return;
     }
 
-    data.documents.forEach((doc) => {
+    data.documents.forEach((doc, i) => {
       const li = document.createElement("li");
-      li.className = "doc-item";
+      li.className =
+        "group flex items-center justify-between bg-elevated border border-edge rounded-lg px-3 py-2.5 text-sm anim-slideIn";
+      li.style.animationDelay = `${i * 0.05}s`;
       li.innerHTML = `
-        <span class="doc-name" title="${doc.filename}">${doc.filename}</span>
-        <button class="doc-delete" data-filename="${doc.filename}">&times;</button>
+        <div class="min-w-0">
+          <div class="truncate" title="${doc.filename}">${doc.filename}</div>
+        </div>
+        <button
+          class="doc-delete opacity-0 group-hover:opacity-100 transition-opacity duration-150 text-gray-500 hover:text-red-400 text-base px-1"
+          data-filename="${doc.filename}"
+        >&times;</button>
       `;
       docList.appendChild(li);
 
       const option = document.createElement("option");
       option.value = doc.filename;
-      option.textContent = doc.filename;
+      option.textContent = doc.filename.replace(/\.pdf$/i, "");
       docFilter.appendChild(option);
     });
 
@@ -77,83 +82,79 @@ async function deleteDocument(filename) {
 async function uploadFile(file) {
   if (!file.name.toLowerCase().endsWith(".pdf")) {
     uploadStatus.textContent = "Only PDF files are supported.";
-    uploadStatus.className = "upload-status error";
+    uploadStatus.className = "mt-2 text-xs min-h-[16px] text-red-400";
     return;
   }
 
   uploadStatus.textContent = `Uploading ${file.name}...`;
-  uploadStatus.className = "upload-status";
+  uploadStatus.className = "mt-2 text-xs min-h-[16px] text-gray-400";
 
   const formData = new FormData();
   formData.append("file", file);
 
   try {
-    const res = await fetch(`${API_BASE}/upload`, {
-      method: "POST",
-      body: formData,
-    });
+    const res = await fetch(`${API_BASE}/upload`, { method: "POST", body: formData });
     const data = await res.json();
 
     if (!res.ok) {
       uploadStatus.textContent = data.detail || "Upload failed.";
-      uploadStatus.className = "upload-status error";
+      uploadStatus.className = "mt-2 text-xs min-h-[16px] text-red-400";
       return;
     }
 
     uploadStatus.textContent = `Indexed ${data.chunks_created} chunks.`;
-    uploadStatus.className = "upload-status success";
+    uploadStatus.className = "mt-2 text-xs min-h-[16px] text-neon";
     await loadDocuments();
   } catch (err) {
     uploadStatus.textContent = "Upload failed. Is the server running?";
-    uploadStatus.className = "upload-status error";
+    uploadStatus.className = "mt-2 text-xs min-h-[16px] text-red-400";
   }
 }
 
 uploadBox.addEventListener("click", () => fileInput.click());
-
 fileInput.addEventListener("change", () => {
   if (fileInput.files.length > 0) {
     uploadFile(fileInput.files[0]);
     fileInput.value = "";
   }
 });
-
 uploadBox.addEventListener("dragover", (e) => {
   e.preventDefault();
-  uploadBox.classList.add("dragover");
+  uploadBox.classList.add("border-blue-500", "bg-blue-500/5", "scale-[1.02]");
 });
-
 uploadBox.addEventListener("dragleave", () => {
-  uploadBox.classList.remove("dragover");
+  uploadBox.classList.remove("border-blue-500", "bg-blue-500/5", "scale-[1.02]");
 });
-
 uploadBox.addEventListener("drop", (e) => {
   e.preventDefault();
-  uploadBox.classList.remove("dragover");
-  if (e.dataTransfer.files.length > 0) {
-    uploadFile(e.dataTransfer.files[0]);
-  }
+  uploadBox.classList.remove("border-blue-500", "bg-blue-500/5", "scale-[1.02]");
+  if (e.dataTransfer.files.length > 0) uploadFile(e.dataTransfer.files[0]);
 });
 
 function clearEmptyState() {
-  const empty = messages.querySelector(".empty-state");
+  const empty = messages.querySelector(".empty-state-msg");
   if (empty) empty.remove();
 }
 
 function addQuestionBubble(question) {
   clearEmptyState();
-  const div = document.createElement("div");
-  div.className = "msg msg-question";
-  div.textContent = question;
-  messages.appendChild(div);
+  const wrap = document.createElement("div");
+  wrap.className = "flex justify-end anim-fadeUp";
+  wrap.innerHTML = `
+    <div class="max-w-[75%] text-white text-[15px] leading-relaxed px-4 py-3 rounded-2xl rounded-br-md"
+         style="background: linear-gradient(135deg, #0052D4, #4364F7);">
+      ${escapeHtml(question)}
+    </div>
+  `;
+  messages.appendChild(wrap);
   messages.scrollTop = messages.scrollHeight;
 }
 
 function addLoadingBubble() {
   const div = document.createElement("div");
-  div.className = "msg msg-loading";
   div.id = "loadingBubble";
-  div.textContent = "Thinking...";
+  div.className = "max-w-3xl w-full mx-auto flex items-center gap-1 text-gray-400 text-sm anim-fadeUp";
+  div.innerHTML = `Generating<span class="blink-cursor ml-1">▍</span>`;
   messages.appendChild(div);
   messages.scrollTop = messages.scrollHeight;
 }
@@ -163,22 +164,81 @@ function removeLoadingBubble() {
   if (el) el.remove();
 }
 
-function addAnswerBubble(answer, sources) {
-  const div = document.createElement("div");
-  div.className = "msg msg-answer";
+function escapeHtml(str) {
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
 
-  let sourcesHtml = "";
+function addAnswerBubble(answer, sources) {
+  const wrap = document.createElement("div");
+  wrap.className = "max-w-3xl w-full mx-auto anim-fadeUp";
+
+  const uid = `acc-${Date.now()}`;
+
+  let accordionRows = "";
+  let pillTabs = "";
+
   if (sources && sources.length > 0) {
-    sourcesHtml = `<div class="msg-sources">${sources
+    accordionRows = sources
+      .map((s, i) => {
+        const rowId = `${uid}-row-${i}`;
+        return `
+          <div class="border-b border-edge last:border-b-0">
+            <button
+              type="button"
+              class="acc-toggle w-full flex items-center justify-between text-left px-3 py-2 text-xs text-gray-400 hover:text-gray-200 transition-colors duration-150"
+              data-target="${rowId}"
+            >
+              <span><b class="text-gray-300">Source ${s.source_number}</b> — ${escapeHtml(s.filename)} (chunk ${s.chunk_index})</span>
+              <span class="chevron text-gray-600">&#8250;</span>
+            </button>
+            <div id="${rowId}" class="accordion-body px-3">
+              <p class="text-xs text-gray-500 pb-3 leading-relaxed">${escapeHtml(s.text_snippet)}</p>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    pillTabs = sources
       .map(
         (s) =>
-          `<div class="source-item"><b>Source ${s.source_number}</b> — ${s.filename} (chunk ${s.chunk_index})</div>`
+          `<span class="text-[11px] bg-elevated2 text-gray-400 border border-edge rounded-full px-3 py-1">chunk ${s.chunk_index}</span>`
       )
-      .join("")}</div>`;
+      .join("");
   }
 
-  div.innerHTML = `<div>${answer}</div>${sourcesHtml}`;
-  messages.appendChild(div);
+  wrap.innerHTML = `
+    ${
+      sources && sources.length > 0
+        ? `<div class="bg-elevated border border-edge rounded-xl mb-3 overflow-hidden">
+             <div class="px-3 py-2 text-[11px] uppercase tracking-wider text-gray-500 border-b border-edge">References (${sources.length})</div>
+             ${accordionRows}
+           </div>`
+        : ""
+    }
+    <div class="bg-elevated border border-edge rounded-xl px-5 py-4 text-[15px] leading-relaxed text-white">
+      ${escapeHtml(answer)}
+      ${
+        pillTabs
+          ? `<div class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-edge">${pillTabs}</div>`
+          : ""
+      }
+    </div>
+  `;
+
+  messages.appendChild(wrap);
+
+  wrap.querySelectorAll(".acc-toggle").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const body = document.getElementById(btn.dataset.target);
+      const chevron = btn.querySelector(".chevron");
+      body.classList.toggle("open");
+      chevron.classList.toggle("open");
+    });
+  });
+
   messages.scrollTop = messages.scrollHeight;
 }
 
