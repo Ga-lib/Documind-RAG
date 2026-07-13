@@ -1,6 +1,7 @@
 # DocuMind RAG
 
 A production-style Retrieval-Augmented Generation (RAG) system for document question-answering — upload PDFs, ask questions, get grounded answers with source citations. Built end-to-end with a REST API, a web UI, Docker deployment, and automated tests.
+Live at: https://documind-rag-vled.onrender.com
 
 **Zero-cost stack**: local embeddings (Sentence-Transformers) + free-tier LLM (Groq) + embedded vector database (ChromaDB) — no paid API keys required to run this project.
 
