@@ -5,6 +5,7 @@ A production-style Retrieval-Augmented Generation (RAG) system for document ques
 **Zero-cost stack**: local embeddings (Sentence-Transformers) + free-tier LLM (Groq) + embedded vector database (ChromaDB) — no paid API keys required to run this project.
 
 ---
+<img width="1919" height="920" alt="image" src="https://github.com/user-attachments/assets/770c14ce-d51f-4579-9727-02ee6603f08b" />
 
 ## Features
 
