@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DocuMind RAG</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-left">
+        <h1>DocuMind RAG</h1>
+        <span class="subtitle">Ask questions about your documents</span>
+      </div>
+      <div class="status" id="status">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Checking...</span>
+      </div>
+    </header>
+
+    <main class="main">
+      <aside class="sidebar">
+        <h2>Documents</h2>
+
+        <div class="upload-box" id="uploadBox">
+          <input type="file" id="fileInput" accept=".pdf" hidden />
+          <p>Drag a PDF here or <span class="link">browse</span></p>
+        </div>
+        <div id="uploadStatus" class="upload-status"></div>
+
+        <ul class="doc-list" id="docList">
+          <li class="doc-empty">No documents yet</li>
+        </ul>
+      </aside>
+
+      <section class="chat">
+        <div class="messages" id="messages">
+          <div class="empty-state">
+            Upload a PDF, then ask a question about it.
+          </div>
+        </div>
+
+        <form class="ask-form" id="askForm">
+          <input
+            type="text"
+            id="questionInput"
+            placeholder="Ask a question about your documents..."
+            autocomplete="off"
+          />
+          <button type="submit" id="askButton">Ask</button>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>
