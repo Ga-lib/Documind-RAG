@@ -6,6 +6,7 @@ const uploadBox = document.getElementById("uploadBox");
 const fileInput = document.getElementById("fileInput");
 const uploadStatus = document.getElementById("uploadStatus");
 const docList = document.getElementById("docList");
+const docFilter = document.getElementById("docFilter");
 const messages = document.getElementById("messages");
 const askForm = document.getElementById("askForm");
 const questionInput = document.getElementById("questionInput");
@@ -31,6 +32,8 @@ async function loadDocuments() {
     const data = await res.json();
 
     docList.innerHTML = "";
+    docFilter.innerHTML = '<option value="">All documents</option>';
+
     if (!data.documents || data.documents.length === 0) {
       docList.innerHTML = '<li class="doc-empty">No documents yet</li>';
       return;
@@ -44,6 +47,11 @@ async function loadDocuments() {
         <button class="doc-delete" data-filename="${doc.filename}">&times;</button>
       `;
       docList.appendChild(li);
+
+      const option = document.createElement("option");
+      option.value = doc.filename;
+      option.textContent = doc.filename;
+      docFilter.appendChild(option);
     });
 
     document.querySelectorAll(".doc-delete").forEach((btn) => {
@@ -188,7 +196,10 @@ askForm.addEventListener("submit", async (e) => {
     const res = await fetch(`${API_BASE}/ask`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question }),
+      body: JSON.stringify({
+        question,
+        source_filename: docFilter.value || null,
+      }),
     });
     const data = await res.json();
 
