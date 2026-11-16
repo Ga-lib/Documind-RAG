@@ -1,224 +1,158 @@
 # DocuMind RAG
 
-A production-style Retrieval-Augmented Generation (RAG) system for document question-answering — upload PDFs, ask questions, get grounded answers with source citations. Built end-to-end with a REST API, a web UI, Docker deployment, and automated tests.
-Live at: https://documind-rag-vled.onrender.com
+A Retrieval-Augmented Generation (RAG) application for PDF question-answering. Upload documents, retrieve relevant passages, and generate answers with source citations.
 
-**Zero-cost stack**: local embeddings (Sentence-Transformers) + free-tier LLM (Groq) + embedded vector database (ChromaDB) — no paid API keys required to run this project.
-
----
-<img width="1919" height="920" alt="image" src="https://github.com/user-attachments/assets/770c14ce-d51f-4579-9727-02ee6603f08b" />
+**Stack:** FastAPI, Sentence-Transformers, ChromaDB, Groq, Pydantic Settings, Docker.
 
 ## Features
 
-- 📄 **PDF upload & indexing** — automatic text extraction, chunking, and embedding
-- 🔍 **Semantic search** — top-k similarity and MMR (diversity-aware) retrieval strategies
-- 🚫 **Anti-hallucination guardrails** — the LLM is instructed to answer only from retrieved context, and explicitly says so when documents don't contain an answer
-- 📌 **Source citations** — every answer references the specific document chunk it came from
-- 🔁 **Duplicate detection** — prevents re-indexing the same document
-- 💬 **Web UI** — drag-and-drop upload, chat-style Q&A, per-document filtering
-- 🐳 **Dockerized** — one-command startup with `docker compose up`
-- ✅ **Automated tests** — pytest coverage for chunking and PDF loading
-- 📊 **Structured JSON logging** — request/error/timing visibility throughout the pipeline
-- ⚙️ **Fully configurable** — chunk size, retrieval strategy, model choice, etc. via `config.yaml` + `.env`
-
----
+- PDF text extraction and configurable recursive/fixed chunking
+- Local embeddings using `all-MiniLM-L6-v2`
+- ChromaDB persistent vector storage
+- Similarity and Maximal Marginal Relevance (MMR) retrieval
+- Groq-powered answers with retrieved source citations
+- Content-hash duplicate detection and bounded PDF uploads
+- Optional API-key protection in development; required in production
+- Browser UI, Docker support, and pytest tests
 
 ## Architecture
 
-```
-                    ┌─────────────┐
-                    │   Browser   │
-                    │  (Web UI)   │
-                    └──────┬──────┘
-                           │ HTTP
-                    ┌──────▼──────┐
-                    │   FastAPI   │
-                    │  (API layer)│
-                    └──────┬──────┘
-                           │
-                    ┌──────▼──────┐
-                    │  Services   │  ← orchestration, no HTTP knowledge
-                    └──────┬──────┘
-                           │
-        ┌──────────────────┼──────────────────┐
-        │                  │                  │
-  ┌─────▼─────┐     ┌─────▼─────┐      ┌─────▼─────┐
-  │  Loader   │────▶│  Chunker  │─────▶│  Embedder │
-  │  (pypdf)  │     │(recursive)│      │(Sentence- │
-  └───────────┘     └───────────┘      │Transform.)│
-                                        └─────┬─────┘
-                                              │
-                                        ┌─────▼─────┐
-                                        │  ChromaDB │
-                                        │ (persist.)│
-                                        └─────┬─────┘
-                                              │
-                                        ┌─────▼─────┐
-                                        │ Retriever │  top-k / MMR
-                                        └─────┬─────┘
-                                              │
-                                        ┌─────▼─────┐
-                                        │ Generator │  Groq (Llama 3.3 70B)
-                                        └─────┬─────┘
-                                              │
-                                     Answer + Citations
+```text
+Browser / API client
+       |
+     FastAPI ---- API-key dependency
+       |
+  Application services
+       |
+ PDF loader -> Chunker -> Embedder -> ChromaDB
+                                  |
+Question -> Retriever -> Context -> Groq -> Answer + citations
 ```
 
-Each pipeline stage (loading, chunking, embedding, storage, retrieval, generation) is isolated behind its own module, so any component can be swapped independently — e.g. ChromaDB → Pinecone, or Groq → OpenAI — without touching the rest of the system.
+## Requirements
 
----
+- Python 3.12
+- Groq API key: https://console.groq.com/keys
+- Docker (optional)
 
-## Tech Stack
-
-| Layer | Technology | Why |
-|---|---|---|
-| API | FastAPI | Async, auto-validated, auto-documented (Swagger) |
-| Embeddings | Sentence-Transformers (`all-MiniLM-L6-v2`) | Free, local, fast on CPU, strong quality-per-compute |
-| Vector DB | ChromaDB | Embedded, persistent, zero infra to deploy |
-| LLM | Groq (Llama 3.3 70B) | Free tier, no credit card, extremely fast inference |
-| Chunking | LangChain `RecursiveCharacterTextSplitter` | Preserves semantic boundaries over naive fixed-size cuts |
-| Config | Pydantic Settings + YAML | Secrets (`.env`) separated from tunable parameters (`config.yaml`) |
-| Deployment | Docker + Docker Compose | One-command, reproducible startup |
-| Testing | pytest | Automated coverage of chunking and PDF-loading logic |
-
----
-
-## Getting Started
-
-### Option A: Docker (recommended)
-
-**Prerequisites**: Docker Desktop, a free [Groq API key](https://console.groq.com/keys)
+## Local setup
 
 ```bash
-git clone <your-repo-url>
-cd documind-rag
-cp .env.example .env   # then add your GROQ_API_KEY
-docker compose up -d
-```
-
-Visit `http://localhost:8000` for the web UI, or `http://localhost:8000/docs` for the API docs.
-
-### Option B: Local development
-
-**Prerequisites**: Python 3.12, a free [Groq API key](https://console.groq.com/keys)
-
-```bash
-git clone <your-repo-url>
-cd documind-rag
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\Activate.ps1
+git clone https://github.com/Ga-lib/Documind-RAG.git
+cd Documind-RAG
+python -m venv .venv
+# Windows PowerShell:
+.venv\\Scripts\\Activate.ps1
+# macOS/Linux:
+# source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env            # then add your GROQ_API_KEY
+copy .env.example .env
+```
+
+Add your Groq key to `.env`:
+
+```dotenv
+GROQ_API_KEY=your_groq_api_key_here
+```
+
+Start the API:
+
+```bash
 uvicorn app.main:app --reload
 ```
 
-Visit `http://localhost:8000`.
+Open http://localhost:8000 for the UI and http://localhost:8000/docs for Swagger.
 
----
+In development, the API key is optional. To protect a local instance, set `DOCUMIND_API_KEY` to a random secret of at least 24 characters. The UI will request it on first protected request and retain it only for the browser session.
 
-## API Usage
+## Production configuration
 
-### Upload a document
+Set `app.environment: "production"` in `app/config/config.yaml` and configure these environment variables in your deployment platform:
+
+```dotenv
+GROQ_API_KEY=your_groq_api_key
+DOCUMIND_API_KEY=your_long_random_secret_at_least_24_chars
+```
+
+The application refuses to start in production without `DOCUMIND_API_KEY`. Protected endpoints require the `X-API-Key` header. Generate a secret with:
+
 ```bash
-curl -X POST http://localhost:8000/upload \
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+This is a single shared API key, not multi-user authentication. Do not use it as a substitute for user accounts, per-user document isolation, rate limiting, or a managed identity system when serving multiple customers.
+
+## Docker
+
+```bash
+docker compose up --build -d
+```
+
+The Compose service reads `.env` and persists the `data/` directory. Ensure your deployment platform mounts persistent storage at `/app/data`; otherwise the ChromaDB index can be lost when the container is replaced.
+
+## API
+
+When API-key protection is enabled, include `X-API-Key` on protected requests.
+
+Upload a PDF:
+
+```bash
+curl -X POST http://localhost:8000/upload \\
+  -H "X-API-Key: $DOCUMIND_API_KEY" \\
   -F "file=@document.pdf"
 ```
 
-### Ask a question
+Ask a question:
+
 ```bash
-curl -X POST http://localhost:8000/ask \
-  -H "Content-Type: application/json" \
-  -d '{"question": "What does this document cover?"}'
+curl -X POST http://localhost:8000/ask \\
+  -H "X-API-Key: $DOCUMIND_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"question":"What does this document discuss?"}'
 ```
 
-**Response:**
-```json
-{
-  "question": "What does this document cover?",
-  "answer": "...",
-  "sources": [
-    {
-      "source_number": 1,
-      "filename": "document.pdf",
-      "chunk_index": 2,
-      "text_snippet": "...",
-      "distance": 0.47
-    }
-  ]
-}
-```
+List documents:
 
-### List documents
 ```bash
-curl http://localhost:8000/documents
+curl http://localhost:8000/documents -H "X-API-Key: $DOCUMIND_API_KEY"
 ```
 
-### Delete a document
+Delete a document:
+
 ```bash
-curl -X DELETE http://localhost:8000/documents/document.pdf
+curl -X DELETE "http://localhost:8000/documents/document.pdf" \\
+  -H "X-API-Key: $DOCUMIND_API_KEY"
 ```
 
-Full interactive API docs available at `/docs` once the server is running.
-
----
-
-## Project Structure
-
-```
-app/
-├── api/routes/        # HTTP endpoints
-├── models/schemas.py  # Pydantic request/response models
-├── services/           # Orchestration layer (API-agnostic business logic)
-├── rag/
-│   ├── loader/         # PDF → text
-│   ├── chunking/       # Text → chunks (fixed & recursive strategies)
-│   ├── embeddings/     # Chunks → vectors
-│   ├── retriever/      # Query → relevant chunks (top-k / MMR)
-│   └── generator/       # Chunks + question → grounded answer
-├── vectorstore/        # ChromaDB wrapper
-├── config/              # Settings loader (.env + config.yaml)
-├── utils/               # Logging, exceptions, hashing
-└── static/               # Web frontend (HTML/CSS/JS)
-tests/                    # pytest unit tests
-scripts/                  # Manual testing / CLI utilities
-```
-
----
+Health check is intentionally unauthenticated at `/health`. Interactive API documentation is available at `/docs`.
 
 ## Configuration
 
-Non-secret settings live in `app/config/config.yaml` (chunk size, retrieval strategy, model names). Secrets live in `.env` (API keys). See `.env.example` for required variables.
+Non-secret settings are in `app/config/config.yaml`. Secrets belong in environment variables or `.env`; never commit `.env`.
 
----
+Important settings include:
 
-## Running Tests
+- `chunking.strategy`, `chunk_size`, and `chunk_overlap`
+- `embeddings.model_name` and `batch_size`
+- `retrieval.search_type`, `top_k`, and `mmr_diversity`
+- `llm.model`, `temperature`, `max_tokens`, and `timeout_seconds`
+- `upload.max_file_size_mb`
+
+## Tests
 
 ```bash
 pip install -r requirements-dev.txt
 pytest
 ```
 
----
+## Known limitations
 
-## Design Decisions
-
-- **Chunking**: recursive splitting (paragraph → sentence → word boundaries) is the default over fixed-size chunking, since it keeps chunks semantically coherent rather than cutting mid-sentence.
-- **Retrieval**: configurable between plain top-k similarity (fast) and MMR (diversity-aware, avoids near-duplicate context) — controlled via `config.yaml`.
-- **Prompting**: the system prompt explicitly instructs the LLM to answer only from retrieved context and to say so when it can't — this is the primary defense against hallucination.
-- **Free-tier design**: every component (embeddings, vector DB, LLM) runs at zero cost, making the project fully reproducible without a paid API key.
-
----
-
-## Future Improvements
-
-- Streaming responses (token-by-token) instead of waiting for the full answer
-- Conversation history / multi-turn context
-- Content-hash-based duplicate detection (currently filename-based)
-- Additional test coverage for the retriever and API layers with mocked external calls
-- Support for additional document types beyond PDF
-
----
+- PDF image OCR is not implemented; scanned PDFs without a text layer are rejected.
+- Authentication is a single shared API key; no user accounts or per-user data partitioning.
+- No rate limiting or request quotas are included.
+- ChromaDB is suitable for a small single-instance deployment; multi-replica deployments need a shared vector database.
+- RAG answer quality still needs a representative evaluation dataset and measured retrieval/generation metrics.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT.
