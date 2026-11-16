@@ -71,7 +71,7 @@ async function loadDocuments() {
 
       const option = document.createElement("option");
       option.value = doc.filename;
-      option.textContent = doc.filename.replace(/\\.pdf$/i, "");
+      option.textContent = doc.filename.replace(/\.pdf$/i, "");
       docFilter.appendChild(option);
     });
 
