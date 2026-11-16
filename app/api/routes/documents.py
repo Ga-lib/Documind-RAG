@@ -1,35 +1,22 @@
-"""Document listing and deletion endpoints."""
-
-from fastapi import APIRouter, Depends, HTTPException
-
+"""Authenticated document list and deletion."""
+from fastapi import APIRouter,Depends,HTTPException
 from app.api.dependencies import get_document_service
-from app.api.security import require_api_key
-from app.models.schemas import DeleteDocumentResponse, DocumentInfo, DocumentListResponse
-from app.services.document_service import DocumentService
-from app.utils.exceptions import VectorStoreError
+from app.models.schemas import DeleteDocumentResponse,DocumentInfo,DocumentListResponse
+from app.services.supabase_document_service import SupabaseDocumentService
 from app.utils.logger import get_logger
-
-logger = get_logger(__name__)
-router = APIRouter(tags=["Documents"], dependencies=[Depends(require_api_key)])
-
-
-@router.get("/documents", response_model=DocumentListResponse)
-def list_documents(service: DocumentService = Depends(get_document_service)) -> DocumentListResponse:
-    try:
-        filenames = service.list_documents()
-    except VectorStoreError as exc:
-        logger.exception("Failed to list documents")
-        raise HTTPException(status_code=500, detail="Could not list documents.") from exc
-    return DocumentListResponse(documents=[DocumentInfo(filename=name) for name in filenames], count=len(filenames))
-
-
-@router.delete("/documents/{filename}", response_model=DeleteDocumentResponse)
-def delete_document(filename: str, service: DocumentService = Depends(get_document_service)) -> DeleteDocumentResponse:
-    try:
-        service.delete_document(filename)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail="Document not found.") from exc
-    except VectorStoreError as exc:
-        logger.exception("Failed to delete document")
-        raise HTTPException(status_code=500, detail="Could not delete document.") from exc
-    return DeleteDocumentResponse(filename=filename, message=f"'{filename}' deleted successfully.")
+logger=get_logger(__name__)
+router=APIRouter(tags=["Documents"])
+@router.get("/documents",response_model=DocumentListResponse)
+def list_documents(service:SupabaseDocumentService=Depends(get_document_service)):
+    try: rows=service.list_documents()
+    except Exception as exc:
+        logger.exception("Document listing failed"); raise HTTPException(502,"Could not load your documents.") from exc
+    docs=[DocumentInfo(filename=r["filename"]) for r in rows if r.get("status")=="ready"]
+    return DocumentListResponse(documents=docs,count=len(docs))
+@router.delete("/documents/{filename}",response_model=DeleteDocumentResponse)
+def delete_document(filename:str,service:SupabaseDocumentService=Depends(get_document_service)):
+    try: service.delete_document(filename)
+    except KeyError as exc: raise HTTPException(404,"Document not found.") from exc
+    except Exception as exc:
+        logger.exception("Document deletion failed"); raise HTTPException(502,"Could not delete document.") from exc
+    return DeleteDocumentResponse(filename=filename,message=f"'{filename}' deleted successfully.")
