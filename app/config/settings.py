@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     groq_api_key: str = Field(..., min_length=1, description="Groq API key")
+    documind_api_key: str | None = Field(default=None, min_length=24)
     groq_model: str = "llama-3.3-70b-versatile"
     vector_db_path: str = "./data/vector_db"
     upload_path: str = "./data/uploads"
@@ -49,9 +50,11 @@ class Settings(BaseSettings):
     collection_name: str = "documind_documents"
 
     @model_validator(mode="after")
-    def validate_chunk_sizes(self):
+    def validate_runtime_settings(self):
         if self.chunk_overlap >= self.chunk_size:
             raise ValueError("chunk_overlap must be smaller than chunk_size")
+        if self.environment == "production" and not self.documind_api_key:
+            raise ValueError("DOCUMIND_API_KEY is required when APP environment is production")
         return self
 
 
@@ -66,30 +69,24 @@ def get_settings() -> Settings:
     vector_store = config.get("vector_store") or {}
     upload = config.get("upload") or {}
     logging_config = config.get("logging") or {}
-
     return Settings(
-        app_name=app.get("name", "DocuMind RAG"),
-        app_version=app.get("version", "0.1.0"),
+        app_name=app.get("name", "DocuMind RAG"), app_version=app.get("version", "0.1.0"),
         environment=app.get("environment", "development"),
         groq_model=llm.get("model", "llama-3.3-70b-versatile"),
-        temperature=llm.get("temperature", 0.1),
-        max_tokens=llm.get("max_tokens", 1024),
+        temperature=llm.get("temperature", 0.1), max_tokens=llm.get("max_tokens", 1024),
         llm_timeout_seconds=llm.get("timeout_seconds", 30),
         embedding_model=embeddings.get("model_name", "all-MiniLM-L6-v2"),
         embedding_batch_size=embeddings.get("batch_size", 32),
         chunking_strategy=chunking.get("strategy", "recursive"),
-        chunk_size=chunking.get("chunk_size", 1000),
-        chunk_overlap=chunking.get("chunk_overlap", 200),
-        top_k=retrieval.get("top_k", 4),
-        search_type=retrieval.get("search_type", "similarity"),
+        chunk_size=chunking.get("chunk_size", 1000), chunk_overlap=chunking.get("chunk_overlap", 200),
+        top_k=retrieval.get("top_k", 4), search_type=retrieval.get("search_type", "similarity"),
         mmr_diversity=retrieval.get("mmr_diversity", 0.5),
         collection_name=vector_store.get("collection_name", "documind_documents"),
         vector_db_path=vector_store.get("persist_directory", "./data/vector_db"),
         upload_path=upload.get("directory", "./data/uploads"),
         max_file_size_mb=upload.get("max_file_size_mb", 20),
         allowed_extensions=upload.get("allowed_extensions", [".pdf"]),
-        log_level=logging_config.get("level", "INFO"),
-        log_format=logging_config.get("format", "json"),
+        log_level=logging_config.get("level", "INFO"), log_format=logging_config.get("format", "json"),
     )
 
 
