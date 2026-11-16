@@ -20,12 +20,12 @@ class UploadResponse(BaseModel):
 # --- /ask ---
 
 class AskRequest(BaseModel):
-    question: str = Field(..., min_length=1, description="The user's question")
+    question: str = Field(..., min_length=1, max_length=4000, description="The user's question")
     top_k: int | None = Field(
         default=None, ge=1, le=20, description="Number of chunks to retrieve"
     )
     source_filename: str | None = Field(
-        default=None, description="Restrict search to a specific document"
+        default=None, max_length=255, description="Restrict search to a specific document"
     )
 
 
