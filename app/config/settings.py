@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     groq_api_key: str = Field(..., min_length=1, description="Groq API key")
-    documind_api_key: str | None = Field(default=None, min_length=24)
+    documind_api_key: str | None = None
     groq_model: str = "llama-3.3-70b-versatile"
     vector_db_path: str = "./data/vector_db"
     upload_path: str = "./data/uploads"
@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     def validate_runtime_settings(self):
         if self.chunk_overlap >= self.chunk_size:
             raise ValueError("chunk_overlap must be smaller than chunk_size")
+        if self.documind_api_key and len(self.documind_api_key) < 24:
+            raise ValueError("DOCUMIND_API_KEY must contain at least 24 characters")
         if self.environment == "production" and not self.documind_api_key:
             raise ValueError("DOCUMIND_API_KEY is required when APP environment is production")
         return self
