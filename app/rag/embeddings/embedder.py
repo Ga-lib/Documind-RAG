@@ -1,6 +1,7 @@
 """Memory-efficient ONNX embedding generation with FastEmbed."""
 
 from functools import lru_cache
+from threading import Lock
 
 from fastembed import TextEmbedding
 
@@ -9,6 +10,11 @@ from app.utils.exceptions import EmbeddingError
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# lru_cache alone does not prevent duplicate execution on simultaneous cache misses.
+# FastEmbed's first model download uses Hugging Face's threaded downloader, which
+# can race when multiple requests initialize the model at the same time.
+_model_load_lock = Lock()
 
 
 @lru_cache
@@ -21,7 +27,10 @@ def _load_model(model_name: str) -> TextEmbedding:
 class Embedder:
     def __init__(self, model_name: str | None = None):
         self.model_name = model_name or settings.embedding_model
-        self._model = _load_model(self.model_name)
+        # Serialize the first cache miss so concurrent uploads do not start
+        # multiple Hugging Face model downloads in parallel.
+        with _model_load_lock:
+            self._model = _load_model(self.model_name)
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         if not texts:
