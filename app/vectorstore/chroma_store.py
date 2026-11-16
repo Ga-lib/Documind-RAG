@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 import os
 from pathlib import Path
+from threading import Lock
 
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
 
@@ -14,6 +15,10 @@ from app.utils.exceptions import VectorStoreError
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# Serialize Chroma initialization against the shared SQLite database.
+_store_init_lock = Lock()
+_shared_store = None
 
 
 @dataclass
@@ -92,3 +97,13 @@ class ChromaStore:
         except Exception as exc:
             logger.exception("Failed to list documents")
             raise VectorStoreError("Could not list documents.") from exc
+
+
+def get_chroma_store() -> ChromaStore:
+    """Return one process-wide Chroma store, initialized under a lock."""
+    global _shared_store
+    if _shared_store is None:
+        with _store_init_lock:
+            if _shared_store is None:
+                _shared_store = ChromaStore()
+    return _shared_store

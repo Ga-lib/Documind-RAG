@@ -9,7 +9,7 @@ from app.rag.loader.pdf_loader import PDFLoader
 from app.utils.exceptions import DuplicateDocumentError, FileTooLargeError
 from app.utils.hashing import hash_file
 from app.utils.logger import get_logger
-from app.vectorstore.chroma_store import ChromaStore
+from app.vectorstore.chroma_store import get_chroma_store
 
 logger = get_logger(__name__)
 
@@ -19,7 +19,7 @@ class DocumentService:
         self._loader = PDFLoader()
         self._chunker = get_chunker()
         self._embedder = Embedder()
-        self._store = ChromaStore()
+        self._store = get_chroma_store()
 
     def upload_and_index(self, file_path: str | Path, original_filename: str) -> int:
         file_path = Path(file_path)
