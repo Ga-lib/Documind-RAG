@@ -36,6 +36,10 @@ app.include_router(ask.router)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
+@app.get("/config", include_in_schema=False)
+def public_client_config():
+    return {"supabase_url": settings.supabase_url, "supabase_anon_key": settings.supabase_anon_key}
+
 @app.get("/", include_in_schema=False)
 def serve_frontend():
     return FileResponse(STATIC_DIR / "index.html")

@@ -12,20 +12,44 @@ const askForm = document.getElementById("askForm");
 const questionInput = document.getElementById("questionInput");
 const askButton = document.getElementById("askButton");
 
-async function apiFetch(url, options = {}) {
-  const headers = new Headers(options.headers || {});
-  let key = sessionStorage.getItem("documind_api_key") || "";
-  if (key) headers.set("X-API-Key", key);
-  let response = await fetch(url, { ...options, headers });
-  if (response.status === 401) {
-    key = window.prompt("Enter your DocuMind API key (stored only for this browser session):") || "";
-    if (!key) return response;
-    sessionStorage.setItem("documind_api_key", key);
-    headers.set("X-API-Key", key);
-    response = await fetch(url, { ...options, headers });
-  }
-  return response;
+let supabaseClient = null;
+let currentSession = null;
+const authStatus = document.getElementById('authStatus');
+const authForm = document.getElementById('authForm');
+const authEmail = document.getElementById('authEmail');
+const authPassword = document.getElementById('authPassword');
+const authSubmit = document.getElementById('authSubmit');
+const authToggle = document.getElementById('authToggle');
+const authSignout = document.getElementById('authSignout');
+let authMode = 'signin';
+async function initAuth() {
+  try {
+    const cfg = await (await fetch('/config')).json();
+    if (!cfg.supabase_url || !cfg.supabase_anon_key || !window.supabase) throw new Error('Auth configuration unavailable');
+    supabaseClient = window.supabase.createClient(cfg.supabase_url, cfg.supabase_anon_key);
+    const state = await supabaseClient.auth.getSession(); currentSession = state.data.session; updateAuthUI();
+    supabaseClient.auth.onAuthStateChange((_event, session) => { currentSession = session; updateAuthUI(); if (session) loadDocuments(); else clearDocuments(); });
+  } catch (e) { if (authStatus) authStatus.textContent = e.message; }
 }
+function updateAuthUI() {
+  const signed = Boolean(currentSession && currentSession.access_token);
+  if (authForm) authForm.hidden = signed; if (authSignout) authSignout.hidden = !signed;
+  if (authStatus) authStatus.textContent = signed ? 'Signed in: ' + (currentSession.user.email || 'account') : 'Sign in or create an account to access private documents.';
+  if (!signed) clearDocuments();
+}
+function clearDocuments() { if (docList) docList.innerHTML = '<li class="text-sm italic text-slate-500">Sign in to see your documents.</li>'; if (docFilter) docFilter.innerHTML = '<option value="">All documents</option>'; }
+authToggle && authToggle.addEventListener('click', () => { authMode = authMode === 'signin' ? 'signup' : 'signin'; authSubmit.textContent = authMode === 'signin' ? 'Sign in' : 'Create account'; authToggle.textContent = authMode === 'signin' ? 'Create account' : 'I already have an account'; });
+authForm && authForm.addEventListener('submit', async (e) => {
+  e.preventDefault(); authSubmit.disabled = true;
+  try { const creds = {email: authEmail.value.trim(), password: authPassword.value};
+    const result = authMode === 'signin' ? await supabaseClient.auth.signInWithPassword(creds) : await supabaseClient.auth.signUp(creds);
+    if (result.error) throw result.error;
+    if (authMode === 'signup' && !result.data.session) authStatus.textContent = 'Check your email to confirm your account, then sign in.';
+    else { currentSession = result.data.session; updateAuthUI(); await loadDocuments(); }
+  } catch (e) { authStatus.textContent = e.message || 'Authentication failed.'; } finally { authSubmit.disabled = false; }
+});
+authSignout && authSignout.addEventListener('click', async () => { if (supabaseClient) await supabaseClient.auth.signOut(); });
+async function apiFetch(url, options = {}) { const headers = new Headers(options.headers || {}); if (currentSession && currentSession.access_token) headers.set('Authorization', 'Bearer ' + currentSession.access_token); return fetch(url, {...options, headers}); }
 
 async function checkHealth() {
   try {
@@ -298,5 +322,5 @@ askForm.addEventListener("submit", async (e) => {
 });
 
 checkHealth();
-loadDocuments();
+initAuth();
 setInterval(checkHealth, 15000);

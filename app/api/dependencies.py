@@ -1,28 +1,7 @@
-"""Thread-safe singleton dependency providers for application services."""
-
-from threading import Lock
-
-from app.services.document_service import DocumentService
-from app.services.qa_service import QAService
-
-_service_lock = Lock()
-_document_service: DocumentService | None = None
-_qa_service: QAService | None = None
-
-
-def get_document_service() -> DocumentService:
-    global _document_service
-    if _document_service is None:
-        with _service_lock:
-            if _document_service is None:
-                _document_service = DocumentService()
-    return _document_service
-
-
-def get_qa_service() -> QAService:
-    global _qa_service
-    if _qa_service is None:
-        with _service_lock:
-            if _qa_service is None:
-                _qa_service = QAService()
-    return _qa_service
+"""Request-scoped service dependencies; every service carries the caller's JWT."""
+from fastapi import Depends
+from app.api.supabase_auth import get_current_user
+from app.services.supabase_document_service import SupabaseDocumentService
+from app.services.supabase_qa_service import SupabaseQAService
+def get_document_service(user:dict=Depends(get_current_user)): return SupabaseDocumentService(user)
+def get_qa_service(user:dict=Depends(get_current_user)): return SupabaseQAService(user)
