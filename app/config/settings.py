@@ -1,112 +1,96 @@
-"""
-Centralized application settings.
-
-Loads secrets from .env and non-secret configuration from config.yaml,
-merging both into a single type-safe Settings object used throughout the app.
-"""
+"""Centralized, validated application settings loaded from YAML and .env."""
 
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Path to this file's directory -> app/config/
-CONFIG_DIR = Path(__file__).parent
-CONFIG_YAML_PATH = CONFIG_DIR / "config.yaml"
+CONFIG_YAML_PATH = Path(__file__).parent / "config.yaml"
 
 
 def _load_yaml_config() -> dict:
-    """Read config.yaml and return it as a plain dict."""
-    if not CONFIG_YAML_PATH.exists():
-        raise FileNotFoundError(
-            f"config.yaml not found at {CONFIG_YAML_PATH}. "
-            "Did you create app/config/config.yaml?"
-        )
-    with open(CONFIG_YAML_PATH, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    if not CONFIG_YAML_PATH.is_file():
+        raise FileNotFoundError(f"Configuration file not found: {CONFIG_YAML_PATH}")
+    with CONFIG_YAML_PATH.open("r", encoding="utf-8") as stream:
+        data = yaml.safe_load(stream) or {}
+    if not isinstance(data, dict):
+        raise ValueError("config.yaml must contain a YAML mapping")
+    return data
 
 
 class Settings(BaseSettings):
-    """
-    Application settings, merged from .env (secrets) and config.yaml (tuning).
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    Environment variables (from .env) always take priority over config.yaml
-    defaults, which lets you override any setting per-environment without
-    editing code.
-    """
-
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
-
-    # --- Secrets / environment-specific (from .env) ---
-    groq_api_key: str = Field(..., description="Groq API key, required")
-    groq_model: str = Field(default="llama-3.3-70b-versatile")
-
-    # --- Paths (can be overridden by .env, default from config.yaml) ---
-    vector_db_path: str = Field(default="./data/vector_db")
-    upload_path: str = Field(default="./data/uploads")
-
-    # --- Chunking (can be overridden by .env) ---
-    chunk_size: int = Field(default=1000)
-    chunk_overlap: int = Field(default=200)
-
-    # --- Retrieval ---
-    top_k: int = Field(default=4)
-
-    # --- LLM generation ---
-    temperature: float = Field(default=0.1)
-
-    # --- Embeddings ---
-    embedding_model: str = Field(default="all-MiniLM-L6-v2")
-
-    # --- Populated from config.yaml, not .env ---
+    groq_api_key: str = Field(..., min_length=1, description="Groq API key")
+    groq_model: str = "llama-3.3-70b-versatile"
+    vector_db_path: str = "./data/vector_db"
+    upload_path: str = "./data/uploads"
+    chunking_strategy: Literal["recursive", "fixed"] = "recursive"
+    chunk_size: int = Field(default=1000, gt=0)
+    chunk_overlap: int = Field(default=200, ge=0)
+    top_k: int = Field(default=4, ge=1, le=20)
+    temperature: float = Field(default=0.1, ge=0, le=2)
+    max_tokens: int = Field(default=1024, gt=0)
+    llm_timeout_seconds: int = Field(default=30, gt=0)
+    embedding_model: str = "all-MiniLM-L6-v2"
+    embedding_batch_size: int = Field(default=32, gt=0)
     app_name: str = "DocuMind RAG"
     app_version: str = "0.1.0"
     environment: Literal["development", "production"] = "development"
     search_type: Literal["similarity", "mmr"] = "similarity"
-    mmr_diversity: float = 0.5
-    max_file_size_mb: int = 20
+    mmr_diversity: float = Field(default=0.5, ge=0, le=1)
+    max_file_size_mb: int = Field(default=20, gt=0)
     allowed_extensions: list[str] = [".pdf"]
     log_level: str = "INFO"
     log_format: Literal["json", "text"] = "json"
     collection_name: str = "documind_documents"
 
+    @model_validator(mode="after")
+    def validate_chunk_sizes(self):
+        if self.chunk_overlap >= self.chunk_size:
+            raise ValueError("chunk_overlap must be smaller than chunk_size")
+        return self
+
 
 @lru_cache
 def get_settings() -> Settings:
-    """
-    Build and cache the Settings object.
+    config = _load_yaml_config()
+    app = config.get("app") or {}
+    llm = config.get("llm") or {}
+    embeddings = config.get("embeddings") or {}
+    chunking = config.get("chunking") or {}
+    retrieval = config.get("retrieval") or {}
+    vector_store = config.get("vector_store") or {}
+    upload = config.get("upload") or {}
+    logging_config = config.get("logging") or {}
 
-    lru_cache ensures the .env + config.yaml files are read only once per
-    process, and every part of the app that calls get_settings() shares
-    the same Settings instance.
-    """
-    yaml_config = _load_yaml_config()
+    return Settings(
+        app_name=app.get("name", "DocuMind RAG"),
+        app_version=app.get("version", "0.1.0"),
+        environment=app.get("environment", "development"),
+        groq_model=llm.get("model", "llama-3.3-70b-versatile"),
+        temperature=llm.get("temperature", 0.1),
+        max_tokens=llm.get("max_tokens", 1024),
+        llm_timeout_seconds=llm.get("timeout_seconds", 30),
+        embedding_model=embeddings.get("model_name", "all-MiniLM-L6-v2"),
+        embedding_batch_size=embeddings.get("batch_size", 32),
+        chunking_strategy=chunking.get("strategy", "recursive"),
+        chunk_size=chunking.get("chunk_size", 1000),
+        chunk_overlap=chunking.get("chunk_overlap", 200),
+        top_k=retrieval.get("top_k", 4),
+        search_type=retrieval.get("search_type", "similarity"),
+        mmr_diversity=retrieval.get("mmr_diversity", 0.5),
+        collection_name=vector_store.get("collection_name", "documind_documents"),
+        vector_db_path=vector_store.get("persist_directory", "./data/vector_db"),
+        upload_path=upload.get("directory", "./data/uploads"),
+        max_file_size_mb=upload.get("max_file_size_mb", 20),
+        allowed_extensions=upload.get("allowed_extensions", [".pdf"]),
+        log_level=logging_config.get("level", "INFO"),
+        log_format=logging_config.get("format", "json"),
+    )
 
-    # Flatten the nested YAML into the fields Settings expects.
-    overrides = {
-        "app_name": yaml_config["app"]["name"],
-        "app_version": yaml_config["app"]["version"],
-        "environment": yaml_config["app"]["environment"],
-        "search_type": yaml_config["retrieval"]["search_type"],
-        "mmr_diversity": yaml_config["retrieval"]["mmr_diversity"],
-        "max_file_size_mb": yaml_config["upload"]["max_file_size_mb"],
-        "allowed_extensions": yaml_config["upload"]["allowed_extensions"],
-        "log_level": yaml_config["logging"]["level"],
-        "log_format": yaml_config["logging"]["format"],
-        "collection_name": yaml_config["vector_store"]["collection_name"],
-    }
 
-    # Settings() automatically reads .env first; we then layer in
-    # the non-secret YAML values that .env doesn't cover.
-    return Settings(**overrides)
-
-
-# Convenience singleton for simple imports: `from app.config.settings import settings`
 settings = get_settings()
