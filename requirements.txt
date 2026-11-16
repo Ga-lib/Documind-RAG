@@ -24,3 +24,4 @@ groq==0.15.0
 
 # --- Utilities ---
 requests==2.32.3
+httpx==0.28.1
