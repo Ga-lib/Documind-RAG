@@ -67,10 +67,11 @@ In development, the API key is optional. To protect a local instance, set `DOCUM
 
 ## Production configuration
 
-Set `app.environment: "production"` in `app/config/config.yaml` and configure these environment variables in your deployment platform:
+Set `ENVIRONMENT=production` (or set `app.environment: "production"` in `app/config/config.yaml`) and configure these environment variables in your deployment platform:
 
 ```dotenv
 GROQ_API_KEY=your_groq_api_key
+ENVIRONMENT=production
 DOCUMIND_API_KEY=your_long_random_secret_at_least_24_chars
 ```
 
@@ -114,7 +115,7 @@ curl -X POST http://localhost:8000/ask \\
 List documents:
 
 ```bash
-curl http://localhost:8000/documents -H "X-API-Key: $DOCUMIND_API_KEY"
+curl http://localhost:8000/documents -H "X-API-Key: $DOCUMIND_API_KEY" -H "X-API-Key: $DOCUMIND_API_KEY"
 ```
 
 Delete a document:
