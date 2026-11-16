@@ -1,8 +1,8 @@
-"""Sentence-Transformers embedding generation."""
+"""Memory-efficient ONNX embedding generation with FastEmbed."""
 
 from functools import lru_cache
 
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 
 from app.config.settings import settings
 from app.utils.exceptions import EmbeddingError
@@ -12,9 +12,10 @@ logger = get_logger(__name__)
 
 
 @lru_cache
-def _load_model(model_name: str) -> SentenceTransformer:
-    logger.info("Loading embedding model '%s'", model_name)
-    return SentenceTransformer(model_name)
+def _load_model(model_name: str) -> TextEmbedding:
+    """Load the ONNX-backed embedding model once per process."""
+    logger.info("Loading FastEmbed model '%s'", model_name)
+    return TextEmbedding(model_name=model_name)
 
 
 class Embedder:
@@ -26,17 +27,19 @@ class Embedder:
         if not texts:
             return []
         try:
-            vectors = self._model.encode(
+            vectors = self._model.embed(
                 texts,
                 batch_size=settings.embedding_batch_size,
-                show_progress_bar=False,
-                convert_to_numpy=True,
             )
+            return [vector.tolist() for vector in vectors]
         except Exception as exc:
             logger.exception("Embedding generation failed")
             raise EmbeddingError("Failed to generate text embeddings.") from exc
-        return vectors.tolist()
 
     def embed_query(self, query: str) -> list[float]:
-        vectors = self.embed_texts([query])
-        return vectors[0]
+        try:
+            vector = next(self._model.query_embed(query))
+            return vector.tolist()
+        except Exception as exc:
+            logger.exception("Query embedding generation failed")
+            raise EmbeddingError("Failed to generate query embedding.") from exc

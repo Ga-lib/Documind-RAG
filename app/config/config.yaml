@@ -10,8 +10,9 @@ llm:
   max_tokens: 1024
   timeout_seconds: 30
 embeddings:
-  model_name: "all-MiniLM-L6-v2"
-  batch_size: 32
+  # Same 384-dimensional model, executed with ONNX Runtime via FastEmbed.
+  model_name: "sentence-transformers/all-MiniLM-L6-v2"
+  batch_size: 8
 chunking:
   strategy: "recursive"
   chunk_size: 1000
