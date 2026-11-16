@@ -111,6 +111,29 @@
       #docFilter { max-width: 82px; }
       #askButton { padding-inline: 10px; }
     }
+
+    /* Keep the question composer visible regardless of viewport/flex sizing. */
+    .ask-form {
+      position: fixed !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      z-index: 1000 !important;
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      padding: 12px 14px max(12px, env(safe-area-inset-bottom)) !important;
+      background: rgba(255,255,255,.98) !important;
+      border-top: 1px solid #e2e8f0 !important;
+      box-shadow: 0 -4px 18px rgba(15,23,42,.08) !important;
+      backdrop-filter: blur(12px);
+    }
+    #messages { padding-bottom: 120px !important; }
+    .ask-form-inner { width: 100%; min-height: 54px; border-radius: 16px !important; }
+    #questionInput { display: block !important; visibility: visible !important; opacity: 1 !important; }
+    @media (min-width: 701px) {
+      .ask-form-inner { max-width: 760px; }
+    }
   </style>
 </head>
 <body class="bg-void text-slate-900 min-h-screen overflow-hidden">
