@@ -1,12 +1,4 @@
-"""
-Answer generation via the Groq API.
-
-Takes retrieved chunks and a user question, builds the anti-hallucination
-prompt, and calls Groq's chat completion endpoint to produce a grounded
-answer. Isolated behind this one file so swapping to a different LLM
-provider (OpenAI, Anthropic, local model) later only requires changing
-this module, not any calling code.
-"""
+"""Grounded answer generation through the Groq API."""
 
 from dataclasses import dataclass
 
@@ -23,34 +15,22 @@ logger = get_logger(__name__)
 
 @dataclass
 class GeneratedAnswer:
-    """The LLM's answer plus the source chunks it was grounded in."""
-
     answer: str
     sources: list[StoredChunk]
 
 
 class Generator:
-    """Generates grounded answers from retrieved context using Groq."""
-
     def __init__(self):
-        self._client = Groq(api_key=settings.groq_api_key)
+        self._client = Groq(api_key=settings.groq_api_key, timeout=settings.llm_timeout_seconds)
 
     def generate(self, question: str, chunks: list[StoredChunk]) -> GeneratedAnswer:
-        """
-        Generate an answer to `question` using only the provided `chunks`
-        as context.
-
-        Raises:
-            LLMTimeoutError: if the Groq API call times out.
-            LLMAPIError: if the Groq API returns an error response.
-        """
+        if not chunks:
+            return GeneratedAnswer(
+                answer="I could not find relevant information in the indexed documents.",
+                sources=[],
+            )
         user_prompt = build_user_prompt(question, chunks)
-
-        logger.info(
-            f"Calling Groq model '{settings.groq_model}' with {len(chunks)} "
-            f"context chunks"
-        )
-
+        logger.info("Calling Groq model %s with %d context chunks", settings.groq_model, len(chunks))
         try:
             response = self._client.chat.completions.create(
                 model=settings.groq_model,
@@ -59,17 +39,18 @@ class Generator:
                     {"role": "user", "content": user_prompt},
                 ],
                 temperature=settings.temperature,
-                max_tokens=1024,
-                timeout=30,
+                max_tokens=settings.max_tokens,
+                timeout=settings.llm_timeout_seconds,
             )
         except APITimeoutError as exc:
-            logger.error(f"Groq API call timed out: {exc}")
+            logger.warning("Groq API request timed out")
             raise LLMTimeoutError("The AI model took too long to respond.") from exc
         except APIError as exc:
-            logger.error(f"Groq API returned an error: {exc}")
-            raise LLMAPIError(f"The AI model returned an error: {exc}") from exc
+            logger.exception("Groq API request failed")
+            raise LLMAPIError("The AI model request failed. Please try again later.") from exc
 
-        answer_text = response.choices[0].message.content
-        logger.info(f"Generated answer ({len(answer_text)} characters)")
-
-        return GeneratedAnswer(answer=answer_text, sources=chunks)
+        answer_text = response.choices[0].message.content if response.choices else None
+        if not answer_text or not answer_text.strip():
+            raise LLMAPIError("The AI model returned an empty response.")
+        logger.info("Generated answer (%d characters)", len(answer_text))
+        return GeneratedAnswer(answer=answer_text.strip(), sources=chunks)
