@@ -46,7 +46,7 @@ class RecursiveChunker(BaseChunker):
         self._splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
-            separators=["\\n\\n", "\\n", ". ", " ", ""],
+            separators=["\n\n", "\n", ". ", " ", ""],
         )
 
     def split(self, text: str, source_filename: str) -> list[Chunk]:
