@@ -1,23 +1,28 @@
-"""
-FastAPI dependency providers.
+"""Thread-safe singleton dependency providers for application services."""
 
-Uses lru_cache so DocumentService/QAService (and everything they hold —
-the embedding model, the Groq client, the Chroma connection) are created
-once per process and reused across requests, instead of being expensively
-rebuilt on every single API call.
-"""
-
-from functools import lru_cache
+from threading import Lock
 
 from app.services.document_service import DocumentService
 from app.services.qa_service import QAService
 
+_service_lock = Lock()
+_document_service: DocumentService | None = None
+_qa_service: QAService | None = None
 
-@lru_cache
+
 def get_document_service() -> DocumentService:
-    return DocumentService()
+    global _document_service
+    if _document_service is None:
+        with _service_lock:
+            if _document_service is None:
+                _document_service = DocumentService()
+    return _document_service
 
 
-@lru_cache
 def get_qa_service() -> QAService:
-    return QAService()
+    global _qa_service
+    if _qa_service is None:
+        with _service_lock:
+            if _qa_service is None:
+                _qa_service = QAService()
+    return _qa_service
