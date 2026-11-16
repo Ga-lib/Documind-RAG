@@ -72,7 +72,7 @@ class PDFLoader:
             # situation from the caller's point of view.
             logger.error(f"Unexpected error opening '{file_path.name}': {exc}")
             raise CorruptedPDFError(
-                f"'{file_path.name}' could not be opened. Error: {exc}"
+                f"'{file_path.name}' could not be opened. The file may be invalid."
             ) from exc
 
         if reader.is_encrypted:

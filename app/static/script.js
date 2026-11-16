@@ -12,9 +12,24 @@ const askForm = document.getElementById("askForm");
 const questionInput = document.getElementById("questionInput");
 const askButton = document.getElementById("askButton");
 
+async function apiFetch(url, options = {}) {
+  const headers = new Headers(options.headers || {});
+  let key = sessionStorage.getItem("documind_api_key") || "";
+  if (key) headers.set("X-API-Key", key);
+  let response = await fetch(url, { ...options, headers });
+  if (response.status === 401) {
+    key = window.prompt("Enter your DocuMind API key (stored only for this browser session):") || "";
+    if (!key) return response;
+    sessionStorage.setItem("documind_api_key", key);
+    headers.set("X-API-Key", key);
+    response = await fetch(url, { ...options, headers });
+  }
+  return response;
+}
+
 async function checkHealth() {
   try {
-    const res = await fetch(`${API_BASE}/health`);
+    const res = await apiFetch(`${API_BASE}/health`);
     if (!res.ok) throw new Error("not ok");
     statusDot.className = "w-2 h-2 rounded-full bg-neon pulse-dot";
     statusText.textContent = "Online";
@@ -26,7 +41,7 @@ async function checkHealth() {
 
 async function loadDocuments() {
   try {
-    const res = await fetch(`${API_BASE}/documents`);
+    const res = await apiFetch(`${API_BASE}/documents`);
     const data = await res.json();
 
     docList.innerHTML = "";
@@ -39,18 +54,19 @@ async function loadDocuments() {
 
     data.documents.forEach((doc, i) => {
       const li = document.createElement("li");
-      li.className =
-        "group flex items-center justify-between bg-elevated border border-edge rounded-lg px-3 py-2.5 text-sm anim-slideIn";
+      li.className = "group flex items-center justify-between bg-elevated border border-edge rounded-lg px-3 py-2.5 text-sm anim-slideIn";
       li.style.animationDelay = `${i * 0.05}s`;
-      li.innerHTML = `
-        <div class="min-w-0">
-          <div class="truncate" title="${doc.filename}">${doc.filename}</div>
-        </div>
-        <button
-          class="doc-delete opacity-0 group-hover:opacity-100 transition-opacity duration-150 text-gray-500 hover:text-red-400 text-base px-1"
-          data-filename="${doc.filename}"
-        >&times;</button>
-      `;
+      const name = document.createElement("span");
+      name.className = "min-w-0 truncate";
+      name.textContent = doc.filename;
+      name.title = doc.filename;
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "doc-delete opacity-0 group-hover:opacity-100 transition-opacity duration-150 text-gray-500 hover:text-red-400 text-base px-1";
+      remove.textContent = "×";
+      remove.setAttribute("aria-label", `Delete ${doc.filename}`);
+      remove.addEventListener("click", () => deleteDocument(doc.filename));
+      li.append(name, remove);
       docList.appendChild(li);
 
       const option = document.createElement("option");
@@ -59,9 +75,6 @@ async function loadDocuments() {
       docFilter.appendChild(option);
     });
 
-    document.querySelectorAll(".doc-delete").forEach((btn) => {
-      btn.addEventListener("click", () => deleteDocument(btn.dataset.filename));
-    });
   } catch (err) {
     console.error("Failed to load documents:", err);
   }
@@ -69,7 +82,7 @@ async function loadDocuments() {
 
 async function deleteDocument(filename) {
   try {
-    const res = await fetch(`${API_BASE}/documents/${encodeURIComponent(filename)}`, {
+    const res = await apiFetch(`${API_BASE}/documents/${encodeURIComponent(filename)}`, {
       method: "DELETE",
     });
     if (!res.ok) throw new Error("Delete failed");
@@ -93,7 +106,7 @@ async function uploadFile(file) {
   formData.append("file", file);
 
   try {
-    const res = await fetch(`${API_BASE}/upload`, { method: "POST", body: formData });
+    const res = await apiFetch(`${API_BASE}/upload`, { method: "POST", body: formData });
     const data = await res.json();
 
     if (!res.ok) {
@@ -253,7 +266,7 @@ askForm.addEventListener("submit", async (e) => {
   addLoadingBubble();
 
   try {
-    const res = await fetch(`${API_BASE}/ask`, {
+    const res = await apiFetch(`${API_BASE}/ask`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
