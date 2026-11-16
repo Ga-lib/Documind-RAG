@@ -10,13 +10,13 @@
       theme: {
         extend: {
           colors: {
-            void: "#0B0C10",
-            panel: "#0F1015",
-            elevated: "#15161D",
-            elevated2: "#1A1C24",
-            edge: "#212330",
-            neon: "#39FF88",
-            ebrand: "#4364F7",
+            void: "#F8FAFC",
+            panel: "#FFFFFF",
+            elevated: "#FFFFFF",
+            elevated2: "#F1F5F9",
+            edge: "#E2E8F0",
+            neon: "#16A34A",
+            ebrand: "#2563EB",
           },
         },
       },
@@ -69,15 +69,57 @@
     }
     .chevron { transition: transform 0.2s ease; }
     .chevron.open { transform: rotate(90deg); }
+
+    /* Light theme + responsive layout */
+    html, body { width: 100%; }
+    body { background: #f8fafc; color: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    #messages { background: #f8fafc; }
+    #questionInput { color: #0f172a; min-width: 0; }
+    #questionInput::placeholder { color: #94a3b8; opacity: 1; }
+    #docFilter { color: #334155; background: #f1f5f9; }
+    #docFilter option { color: #0f172a; background: #fff; }
+    #uploadBox { color: #475569; }
+    #docList li { color: #334155; }
+    .accordion-body p { color: #475569 !important; }
+    .acc-toggle { color: #475569 !important; }
+    .acc-toggle b { color: #0f172a !important; }
+    .ask-form-inner { background: #fff; border-color: #cbd5e1; box-shadow: 0 1px 3px rgba(15,23,42,.06); }
+    .ask-form-inner:focus-within { border-color: #2563eb; }
+    .chat-panel { min-width: 0; }
+    #askButton { flex-shrink: 0; }
+    @media (max-width: 700px) {
+      html, body { min-height: 100%; height: auto; overflow: auto; }
+      .app-shell { min-height: 100dvh; height: auto; }
+      .app-header { padding: 14px 16px; position: sticky; top: 0; z-index: 20; }
+      .app-header h1 { font-size: 19px; }
+      .app-layout { flex-direction: column; overflow: visible; flex: 1; }
+      .app-sidebar { width: 100%; min-width: 0; max-width: none; border-right: 0; border-bottom: 1px solid #e2e8f0; padding: 14px 16px; overflow: visible; }
+      #uploadBox { padding: 14px; }
+      #docList { margin-top: 10px; }
+      .chat-panel { min-height: 52vh; min-height: 52dvh; overflow: visible; }
+      #messages { min-height: 32vh; min-height: 32dvh; padding: 22px 14px 16px; overflow: visible; gap: 18px; }
+      .ask-form { position: sticky; bottom: 0; z-index: 15; padding: 10px 12px max(12px, env(safe-area-inset-bottom)); background: rgba(248,250,252,.97); backdrop-filter: blur(12px); border-top: 1px solid #e2e8f0; }
+      .ask-form-inner { border-radius: 16px; gap: 6px; padding: 6px; }
+      #docFilter { max-width: 104px; padding: 8px 5px; font-size: 11px; }
+      #questionInput { font-size: 14px; padding: 9px 4px; }
+      #questionInput::placeholder { font-size: 12px; }
+      #askButton { padding: 10px 14px; font-size: 13px; }
+    }
+    @media (max-width: 360px) {
+      #docFilter { max-width: 82px; }
+      #askButton { padding-inline: 10px; }
+    }
   </style>
 </head>
-<body class="bg-void text-gray-100 h-screen overflow-hidden">
-  <div class="flex flex-col h-screen">
+<body class="bg-void text-slate-900 min-h-screen overflow-hidden">
+  <div class="app-shell flex flex-col h-screen">
 
     <!-- Header -->
-    <header class="flex items-center justify-between px-7 py-4 border-b border-edge bg-panel">
+    <header class="app-header flex items-center justify-between px-7 py-4 border-b border-edge bg-panel">
       <div>
-        <h1 class="text-xl font-bold tracking-tight text-white">DocuMind RAG</h1>
+        <h1 class="text-xl font-bold tracking-tight text-slate-900">DocuMind RAG</h1>
         <p class="text-sm text-gray-500">Ask questions about your documents</p>
       </div>
       <div class="flex items-center gap-2 text-sm text-gray-400">
@@ -86,10 +128,10 @@
       </div>
     </header>
 
-    <div class="flex flex-1 overflow-hidden">
+    <div class="app-layout flex flex-1 overflow-hidden">
 
       <!-- Sidebar -->
-      <aside class="w-1/4 min-w-[260px] max-w-[340px] border-r border-edge bg-panel p-5 overflow-y-auto">
+      <aside class="app-sidebar w-1/4 min-w-[260px] max-w-[340px] border-r border-edge bg-panel p-5 overflow-y-auto">
         <h2 class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Documents</h2>
 
         <div
@@ -107,20 +149,20 @@
       </aside>
 
       <!-- Chat -->
-      <section class="flex-1 flex flex-col overflow-hidden">
-        <div id="messages" class="flex-1 overflow-y-auto px-6 py-8 flex flex-col gap-7">
+      <section class="chat-panel flex-1 flex flex-col overflow-hidden">
+        <div id="messages" class="messages flex-1 overflow-y-auto px-6 py-8 flex flex-col gap-7">
           <div class="text-center text-gray-600 text-sm mt-20">
             Upload a PDF, then ask a question about it.
           </div>
         </div>
 
         <!-- Input bar -->
-        <form id="askForm" class="px-6 pb-6 pt-2">
-          <div class="max-w-3xl mx-auto flex items-center gap-2 bg-elevated border border-edge rounded-full pl-2 pr-2 py-2 transition-all duration-200 ease-in-out focus-within:border-ebrand focus-within:shadow-[0_0_0_3px_rgba(67,100,247,0.15)]">
+        <form id="askForm" class="ask-form px-6 pb-6 pt-2">
+          <div class="ask-form-inner max-w-3xl mx-auto flex items-center gap-2 bg-elevated border border-edge rounded-full pl-2 pr-2 py-2 transition-all duration-200 ease-in-out focus-within:border-ebrand focus-within:shadow-[0_0_0_3px_rgba(37,99,235,0.15)]">
             <select
               id="docFilter"
               title="Limit search to one document"
-              class="bg-elevated2 text-gray-300 text-xs rounded-full px-3 py-2 border-none outline-none max-w-[150px] cursor-pointer"
+              class="bg-elevated2 text-slate-700 text-xs rounded-full px-3 py-2 border-none outline-none max-w-[150px] cursor-pointer"
             >
               <option value="">All documents</option>
             </select>
@@ -129,7 +171,7 @@
               id="questionInput"
               placeholder="Ask a question about your documents..."
               autocomplete="off"
-              class="flex-1 bg-transparent outline-none text-[15px] px-2 placeholder-gray-600"
+              class="flex-1 bg-transparent outline-none text-[15px] px-2 placeholder-slate-400"
             />
             <button
               type="submit"

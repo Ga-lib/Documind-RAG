@@ -48,7 +48,7 @@ async function loadDocuments() {
     docFilter.innerHTML = '<option value="">All documents</option>';
 
     if (!data.documents || data.documents.length === 0) {
-      docList.innerHTML = '<li class="text-sm italic text-gray-600">No documents yet</li>';
+      docList.innerHTML = '<li class="text-sm italic text-slate-500">No documents yet</li>';
       return;
     }
 
@@ -200,14 +200,14 @@ function addAnswerBubble(answer, sources) {
           <div class="border-b border-edge last:border-b-0">
             <button
               type="button"
-              class="acc-toggle w-full flex items-center justify-between text-left px-3 py-2 text-xs text-gray-400 hover:text-gray-200 transition-colors duration-150"
+              class="acc-toggle w-full flex items-center justify-between text-left px-3 py-2 text-xs text-gray-400 hover:text-slate-700 transition-colors duration-150"
               data-target="${rowId}"
             >
-              <span><b class="text-gray-300">Source ${s.source_number}</b> — ${escapeHtml(s.filename)} (chunk ${s.chunk_index})</span>
-              <span class="chevron text-gray-600">&#8250;</span>
+              <span><b class="text-slate-800">Source ${s.source_number}</b> — ${escapeHtml(s.filename)} (chunk ${s.chunk_index})</span>
+              <span class="chevron text-slate-400">&#8250;</span>
             </button>
             <div id="${rowId}" class="accordion-body px-3">
-              <p class="text-xs text-gray-500 pb-3 leading-relaxed">${escapeHtml(s.text_snippet)}</p>
+              <p class="text-xs text-slate-600 pb-3 leading-relaxed">${escapeHtml(s.text_snippet)}</p>
             </div>
           </div>
         `;
@@ -217,7 +217,7 @@ function addAnswerBubble(answer, sources) {
     pillTabs = sources
       .map(
         (s) =>
-          `<span class="text-[11px] bg-elevated2 text-gray-400 border border-edge rounded-full px-3 py-1">chunk ${s.chunk_index}</span>`
+          `<span class="text-[11px] bg-elevated2 text-slate-600 border border-edge rounded-full px-3 py-1">chunk ${s.chunk_index}</span>`
       )
       .join("");
   }
@@ -226,12 +226,12 @@ function addAnswerBubble(answer, sources) {
     ${
       sources && sources.length > 0
         ? `<div class="bg-elevated border border-edge rounded-xl mb-3 overflow-hidden">
-             <div class="px-3 py-2 text-[11px] uppercase tracking-wider text-gray-500 border-b border-edge">References (${sources.length})</div>
+             <div class="px-3 py-2 text-[11px] uppercase tracking-wider text-slate-500 border-b border-edge">References (${sources.length})</div>
              ${accordionRows}
            </div>`
         : ""
     }
-    <div class="bg-elevated border border-edge rounded-xl px-5 py-4 text-[15px] leading-relaxed text-white">
+    <div class="bg-elevated border border-edge rounded-xl px-5 py-4 text-[15px] leading-relaxed text-slate-800">
       ${escapeHtml(answer)}
       ${
         pillTabs
