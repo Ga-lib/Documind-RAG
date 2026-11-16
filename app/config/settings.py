@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
+import os
 from typing import Literal
 
 import yaml
@@ -73,7 +74,7 @@ def get_settings() -> Settings:
     logging_config = config.get("logging") or {}
     return Settings(
         app_name=app.get("name", "DocuMind RAG"), app_version=app.get("version", "0.1.0"),
-        environment=app.get("environment", "development"),
+        environment=os.getenv("ENVIRONMENT", app.get("environment", "development")),
         groq_model=llm.get("model", "llama-3.3-70b-versatile"),
         temperature=llm.get("temperature", 0.1), max_tokens=llm.get("max_tokens", 1024),
         llm_timeout_seconds=llm.get("timeout_seconds", 30),
