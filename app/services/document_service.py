@@ -33,8 +33,8 @@ class DocumentService:
             )
 
         file_hash = hash_file(file_path)
-        if self._store.has_file_hash(file_hash):
-            raise DuplicateDocumentError("This PDF has already been indexed.")
+        if self._store.has_file_hash(file_hash) or original_filename in self._store.list_document_filenames():
+            raise DuplicateDocumentError("A document with this content or filename has already been indexed.")
 
         document = self._loader.load(file_path)
         chunks = self._chunker.split(document.full_text, original_filename)
