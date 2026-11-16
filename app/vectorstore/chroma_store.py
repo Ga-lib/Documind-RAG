@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 import os
+from pathlib import Path
 
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
 
@@ -26,7 +27,6 @@ class StoredChunk:
 class ChromaStore:
     def __init__(self):
         try:
-            Path = __import__("pathlib").Path
             Path(settings.vector_db_path).mkdir(parents=True, exist_ok=True)
             self._client = chromadb.PersistentClient(
                 path=settings.vector_db_path,
@@ -54,18 +54,14 @@ class ChromaStore:
             count = self._collection.count()
             if count == 0:
                 return []
-            results = self._collection.query(
-                query_embeddings=[query_embedding], n_results=min(top_k, count), where=where
-            )
+            results = self._collection.query(query_embeddings=[query_embedding], n_results=min(top_k, count), where=where)
         except Exception as exc:
             logger.exception("Vector store query failed")
             raise VectorStoreError("Vector search failed.") from exc
-
         return [
-            StoredChunk(id=ids, text=text, metadata=metadata or {}, distance=distance)
-            for ids, text, metadata, distance in zip(
-                results["ids"][0], results["documents"][0],
-                results["metadatas"][0], results["distances"][0],
+            StoredChunk(id=chunk_id, text=text, metadata=metadata or {}, distance=distance)
+            for chunk_id, text, metadata, distance in zip(
+                results["ids"][0], results["documents"][0], results["metadatas"][0], results["distances"][0]
             )
         ]
 
@@ -79,9 +75,7 @@ class ChromaStore:
 
     def delete_by_filename(self, filename: str) -> None:
         try:
-            existing = self._collection.get(
-                where={"source_filename": filename}, include=["metadatas"], limit=1
-            )
+            existing = self._collection.get(where={"source_filename": filename}, include=["metadatas"], limit=1)
             if not existing.get("ids"):
                 raise KeyError(filename)
             self._collection.delete(where={"source_filename": filename})
@@ -94,11 +88,7 @@ class ChromaStore:
     def list_document_filenames(self) -> list[str]:
         try:
             all_items = self._collection.get(include=["metadatas"])
-            filenames = {
-                meta["source_filename"] for meta in all_items["metadatas"]
-                if meta and meta.get("source_filename")
-            }
-            return sorted(filenames)
+            return sorted({meta["source_filename"] for meta in all_items["metadatas"] if meta and meta.get("source_filename")})
         except Exception as exc:
             logger.exception("Failed to list documents")
             raise VectorStoreError("Could not list documents.") from exc
