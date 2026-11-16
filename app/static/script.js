@@ -42,7 +42,8 @@ async function checkHealth() {
 async function loadDocuments() {
   try {
     const res = await apiFetch(`${API_BASE}/documents`);
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Could not load documents (HTTP " + res.status + ").");
 
     docList.innerHTML = "";
     docFilter.innerHTML = '<option value="">All documents</option>';
@@ -77,6 +78,11 @@ async function loadDocuments() {
 
   } catch (err) {
     console.error("Failed to load documents:", err);
+    docList.innerHTML = "";
+    const li = document.createElement("li");
+    li.className = "text-sm text-red-600";
+    li.textContent = err.message || "Could not load documents. Refresh to retry.";
+    docList.appendChild(li);
   }
 }
 
@@ -107,10 +113,10 @@ async function uploadFile(file) {
 
   try {
     const res = await apiFetch(`${API_BASE}/upload`, { method: "POST", body: formData });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
-      uploadStatus.textContent = data.detail || "Upload failed.";
+      uploadStatus.textContent = data.detail || "Upload failed (HTTP " + res.status + ").";
       uploadStatus.className = "mt-2 text-xs min-h-[16px] text-red-400";
       return;
     }
@@ -274,12 +280,12 @@ askForm.addEventListener("submit", async (e) => {
         source_filename: docFilter.value || null,
       }),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
 
     removeLoadingBubble();
 
     if (!res.ok) {
-      addAnswerBubble(data.detail || "Something went wrong.", []);
+      addAnswerBubble(data.detail || "Request failed (HTTP " + res.status + ").", []);
     } else {
       addAnswerBubble(data.answer, data.sources);
     }
