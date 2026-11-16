@@ -1,6 +1,4 @@
-"""
-Document listing and deletion endpoints.
-"""
+"""Document listing and deletion endpoints."""
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -15,34 +13,22 @@ router = APIRouter(tags=["Documents"])
 
 
 @router.get("/documents", response_model=DocumentListResponse)
-def list_documents(
-    service: DocumentService = Depends(get_document_service),
-) -> DocumentListResponse:
-    """Return all currently indexed documents."""
+def list_documents(service: DocumentService = Depends(get_document_service)) -> DocumentListResponse:
     try:
         filenames = service.list_documents()
     except VectorStoreError as exc:
-        logger.error(f"Failed to list documents: {exc}")
-        raise HTTPException(status_code=500, detail=str(exc))
-
-    return DocumentListResponse(
-        documents=[DocumentInfo(filename=f) for f in filenames],
-        count=len(filenames),
-    )
+        logger.exception("Failed to list documents")
+        raise HTTPException(status_code=500, detail="Could not list documents.") from exc
+    return DocumentListResponse(documents=[DocumentInfo(filename=name) for name in filenames], count=len(filenames))
 
 
 @router.delete("/documents/{filename}", response_model=DeleteDocumentResponse)
-def delete_document(
-    filename: str,
-    service: DocumentService = Depends(get_document_service),
-) -> DeleteDocumentResponse:
-    """Delete all chunks belonging to a specific document."""
+def delete_document(filename: str, service: DocumentService = Depends(get_document_service)) -> DeleteDocumentResponse:
     try:
         service.delete_document(filename)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Document not found.") from exc
     except VectorStoreError as exc:
-        logger.error(f"Failed to delete '{filename}': {exc}")
-        raise HTTPException(status_code=500, detail=str(exc))
-
-    return DeleteDocumentResponse(
-        filename=filename, message=f"'{filename}' deleted successfully."
-    )
+        logger.exception("Failed to delete document")
+        raise HTTPException(status_code=500, detail="Could not delete document.") from exc
+    return DeleteDocumentResponse(filename=filename, message=f"'{filename}' deleted successfully.")
