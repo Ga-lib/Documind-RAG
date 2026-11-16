@@ -3,13 +3,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.dependencies import get_document_service
+from app.api.security import require_api_key
 from app.models.schemas import DeleteDocumentResponse, DocumentInfo, DocumentListResponse
 from app.services.document_service import DocumentService
 from app.utils.exceptions import VectorStoreError
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
-router = APIRouter(tags=["Documents"])
+router = APIRouter(tags=["Documents"], dependencies=[Depends(require_api_key)])
 
 
 @router.get("/documents", response_model=DocumentListResponse)
