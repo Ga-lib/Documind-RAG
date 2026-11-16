@@ -6,7 +6,7 @@ from app.config.settings import settings
 from app.rag.embeddings.embedder import Embedder
 from app.utils.exceptions import RetrievalError
 from app.utils.logger import get_logger
-from app.vectorstore.chroma_store import ChromaStore, StoredChunk
+from app.vectorstore.chroma_store import ChromaStore, StoredChunk, get_chroma_store
 
 logger = get_logger(__name__)
 
@@ -21,7 +21,7 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
 
 class Retriever:
     def __init__(self, store: ChromaStore | None = None, embedder: Embedder | None = None):
-        self._store = store or ChromaStore()
+        self._store = store or get_chroma_store()
         self._embedder = embedder or Embedder()
 
     def retrieve(self, query: str, top_k: int | None = None, source_filename: str | None = None) -> list[StoredChunk]:
