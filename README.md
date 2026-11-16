@@ -46,7 +46,7 @@ python -m venv .venv
 # macOS/Linux:
 # source .venv/bin/activate
 pip install -r requirements.txt
-copy .env.example .env
+cp .env.example .env
 ```
 
 Add your Groq key to `.env`:
@@ -115,7 +115,7 @@ curl -X POST http://localhost:8000/ask \\
 List documents:
 
 ```bash
-curl http://localhost:8000/documents -H "X-API-Key: $DOCUMIND_API_KEY" -H "X-API-Key: $DOCUMIND_API_KEY"
+curl http://localhost:8000/documents -H "X-API-Key: $DOCUMIND_API_KEY"
 ```
 
 Delete a document:
