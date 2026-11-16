@@ -75,9 +75,6 @@ async function loadDocuments() {
       docFilter.appendChild(option);
     });
 
-    document.querySelectorAll(".doc-delete").forEach((btn) => {
-      btn.addEventListener("click", () => deleteDocument(btn.dataset.filename));
-    });
   } catch (err) {
     console.error("Failed to load documents:", err);
   }
