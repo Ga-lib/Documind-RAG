@@ -70,7 +70,9 @@ async function initAuth() {
   try {
     const cfg = await (await fetch('/config')).json();
     if (!cfg.supabase_url || !cfg.supabase_anon_key || !window.supabase) throw new Error('Auth configuration unavailable');
+    const recoveryRedirect = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
     supabaseClient = window.supabase.createClient(cfg.supabase_url, cfg.supabase_anon_key);
+    recoveryMode = recoveryRedirect;
     const state = await supabaseClient.auth.getSession();
     currentSession = state.data.session;
     updateAuthUI();
@@ -141,6 +143,7 @@ authUpdatePassword && authUpdatePassword.addEventListener('click', async () => {
     if (error) throw error;
     recoveryMode = false;
     resetRequestMode = false;
+    window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
     authNewPassword.value = '';
     authConfirmPassword.value = '';
     authPassword.value = '';
