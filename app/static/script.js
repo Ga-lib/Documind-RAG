@@ -42,7 +42,7 @@ authToggle && authToggle.addEventListener('click', () => { authMode = authMode =
 authForm && authForm.addEventListener('submit', async (e) => {
   e.preventDefault(); authSubmit.disabled = true;
   try { const creds = {email: authEmail.value.trim(), password: authPassword.value};
-    const result = authMode === 'signin' ? await supabaseClient.auth.signInWithPassword(creds) : await supabaseClient.auth.signUp(creds, { emailRedirectTo: window.location.origin });
+    const result = authMode === 'signin' ? await supabaseClient.auth.signInWithPassword(creds) : await supabaseClient.auth.signUp({ ...creds, options: { emailRedirectTo: window.location.origin } });
     if (result.error) throw result.error;
     if (authMode === 'signup' && !result.data.session) authStatus.textContent = 'Check your email to confirm your account, then sign in.';
     else { currentSession = result.data.session; updateAuthUI(); await loadDocuments(); }
