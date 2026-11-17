@@ -53,10 +53,10 @@ function setAuthMode(mode) {
   resetRequestMode = mode === 'reset';
   authPassword.hidden = resetRequestMode;
   authPassword.required = !resetRequestMode;
-  authToggle.hidden = resetRequestMode;
+  authToggle.hidden = false;
   authForgot.hidden = resetRequestMode || mode === 'signup';
   authSubmit.textContent = mode === 'signup' ? 'Create account' : mode === 'reset' ? 'Send reset link' : 'Sign in';
-  authToggle.textContent = mode === 'signin' ? 'Create account' : 'I already have an account';
+  authToggle.textContent = mode === 'signin' ? 'Create account' : mode === 'reset' ? 'Back to sign in' : 'I already have an account';
   if (authStatus) authStatus.textContent = mode === 'reset'
     ? 'Enter your account email. We will send a reset link if an account matches.'
     : mode === 'signup'
