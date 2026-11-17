@@ -123,6 +123,12 @@ async function deleteDocument(filename) {
 }
 
 async function uploadFile(file) {
+  if (!currentSession || !currentSession.access_token) {
+    uploadStatus.textContent = "Sign in before uploading a document.";
+    uploadStatus.className = "mt-2 text-xs min-h-[16px] text-red-600";
+    return;
+  }
+
   if (!file.name.toLowerCase().endsWith(".pdf")) {
     uploadStatus.textContent = "Only PDF files are supported.";
     uploadStatus.className = "mt-2 text-xs min-h-[16px] text-red-400";
@@ -287,6 +293,10 @@ function addAnswerBubble(answer, sources) {
 
 askForm.addEventListener("submit", async (e) => {
   e.preventDefault();
+  if (!currentSession || !currentSession.access_token) {
+    addAnswerBubble("Please sign in before asking questions about your documents.", []);
+    return;
+  }
   const question = questionInput.value.trim();
   if (!question) return;
 
