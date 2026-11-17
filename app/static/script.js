@@ -90,12 +90,12 @@ async function loadDocuments() {
       remove.className = "doc-delete opacity-0 group-hover:opacity-100 transition-opacity duration-150 text-gray-500 hover:text-red-400 text-base px-1";
       remove.textContent = "×";
       remove.setAttribute("aria-label", `Delete ${doc.filename}`);
-      remove.addEventListener("click", () => deleteDocument(doc.filename));
+      remove.addEventListener("click", () => deleteDocument(doc.id));
       li.append(name, remove);
       docList.appendChild(li);
 
       const option = document.createElement("option");
-      option.value = doc.filename;
+      option.value = doc.id;
       option.textContent = doc.filename.replace(/\.pdf$/i, "");
       docFilter.appendChild(option);
     });
@@ -110,9 +110,9 @@ async function loadDocuments() {
   }
 }
 
-async function deleteDocument(filename) {
+async function deleteDocument(documentId) {
   try {
-    const res = await apiFetch(`${API_BASE}/documents/${encodeURIComponent(filename)}`, {
+    const res = await apiFetch(`${API_BASE}/documents/${encodeURIComponent(documentId)}`, {
       method: "DELETE",
     });
     if (!res.ok) throw new Error("Delete failed");
@@ -311,7 +311,7 @@ askForm.addEventListener("submit", async (e) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         question,
-        source_filename: docFilter.value || null,
+        source_document_id: docFilter.value || null,
       }),
     });
     const data = await res.json().catch(() => ({}));

@@ -27,6 +27,6 @@ def test_question_length_is_bounded():
         AskRequest(question="x" * 4001)
 
 
-def test_source_filename_length_is_bounded():
+def test_source_document_id_length_is_bounded():
     with pytest.raises(ValidationError):
-        AskRequest(question="Summarize this", source_filename="x" * 256)
+        AskRequest(question="Summarize this", source_document_id="x" * 37)

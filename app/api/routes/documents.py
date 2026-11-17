@@ -11,12 +11,12 @@ def list_documents(service:SupabaseDocumentService=Depends(get_document_service)
     try: rows=service.list_documents()
     except Exception as exc:
         logger.exception("Document listing failed"); raise HTTPException(502,"Could not load your documents.") from exc
-    docs=[DocumentInfo(filename=r["filename"]) for r in rows if r.get("status")=="ready"]
+    docs=[DocumentInfo(id=r["id"],filename=r["filename"]) for r in rows if r.get("status")=="ready"]
     return DocumentListResponse(documents=docs,count=len(docs))
-@router.delete("/documents/{filename}",response_model=DeleteDocumentResponse)
-def delete_document(filename:str,service:SupabaseDocumentService=Depends(get_document_service)):
-    try: service.delete_document(filename)
+@router.delete("/documents/{document_id}",response_model=DeleteDocumentResponse)
+def delete_document(document_id:str,service:SupabaseDocumentService=Depends(get_document_service)):
+    try: service.delete_document(document_id)
     except KeyError as exc: raise HTTPException(404,"Document not found.") from exc
     except Exception as exc:
         logger.exception("Document deletion failed"); raise HTTPException(502,"Could not delete document.") from exc
-    return DeleteDocumentResponse(filename=filename,message=f"'{filename}' deleted successfully.")
+    return DeleteDocumentResponse(filename=document_id,message="Document deleted successfully.")

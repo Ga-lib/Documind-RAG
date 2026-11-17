@@ -21,6 +21,9 @@ class SupabaseREST:
     def get_doc(self,name):
         rows=self.req("GET","/rest/v1/documind_documents",{"select":"id,filename,storage_path,status,content_hash","filename":f"eq.{name}","limit":"1"})
         return rows[0] if rows else None
+    def get_doc_by_id(self,document_id):
+        rows=self.req("GET","/rest/v1/documind_documents",{"select":"id,filename,storage_path,status,content_hash","id":f"eq.{document_id}","limit":"1"})
+        return rows[0] if rows else None
     def insert_doc(self,row):
         return self.req("POST","/rest/v1/documind_documents",{"select":"id"},row,extra={"Prefer":"return=representation"})[0]
     def update_doc(self,id,row): return self.req("PATCH","/rest/v1/documind_documents",{"id":f"eq.{id}"},row,extra={"Prefer":"return=minimal"})

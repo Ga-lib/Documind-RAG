@@ -110,10 +110,10 @@ class SupabaseDocumentService:
     def list_documents(self):
         return self.db.list_docs()
 
-    def delete_document(self, filename):
-        row = self.db.get_doc(filename)
+    def delete_document(self, document_id):
+        row = self.db.get_doc_by_id(document_id)
         if not row:
-            raise KeyError(filename)
+            raise KeyError(document_id)
 
         # Keep the row if storage deletion fails, so the user can retry.
         self.db.remove(row["storage_path"])
