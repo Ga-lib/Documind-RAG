@@ -24,8 +24,8 @@ class SupabaseDocumentService:
         path = Path(file_path)
         digest = hash_file(path)
 
-        # The UI addresses documents by filename, so prevent ambiguous
-        # selection/deletion when two files share the same name.
+        # Keep the pre-check for a clear error; database unique constraints
+        # remain the final guard against concurrent duplicate uploads.
         if self.db.get_doc(filename):
             raise ValueError(
                 "A document with this filename already exists. Rename the PDF and retry."
