@@ -24,8 +24,8 @@ class AskRequest(BaseModel):
     top_k: int | None = Field(
         default=None, ge=1, le=20, description="Number of chunks to retrieve"
     )
-    source_filename: str | None = Field(
-        default=None, max_length=255, description="Restrict search to a specific document"
+    source_document_id: str | None = Field(
+        default=None, max_length=36, description="Restrict search to a specific document UUID"
     )
 
 
@@ -46,6 +46,7 @@ class AskResponse(BaseModel):
 # --- /documents ---
 
 class DocumentInfo(BaseModel):
+    id: str
     filename: str
 
 
