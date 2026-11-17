@@ -18,7 +18,6 @@ class SupabaseDocumentService:
         self.db = SupabaseREST(user["access_token"])
         self.loader = PDFLoader()
         self.chunker = get_chunker()
-        self.embedder = Embedder()
 
     def upload_and_index(self, file_path, filename):
         path = Path(file_path)
@@ -65,7 +64,9 @@ class SupabaseDocumentService:
             if not chunks:
                 raise ValueError("No readable text was found in this PDF.")
 
-            vectors = self.embedder.embed_texts([chunk.text for chunk in chunks])
+            # Load the ONNX model only for ingestion, not document listing/deletion.
+            embedder = Embedder()
+            vectors = embedder.embed_texts([chunk.text for chunk in chunks])
             if len(vectors) != len(chunks):
                 raise RuntimeError("Embedding count does not match the chunk count.")
 
