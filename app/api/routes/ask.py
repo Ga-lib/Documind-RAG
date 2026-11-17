@@ -9,7 +9,7 @@ logger=get_logger(__name__)
 router=APIRouter(tags=["Ask"])
 @router.post("/ask",response_model=AskResponse)
 def ask_question(request:AskRequest,service:SupabaseQAService=Depends(get_qa_service)):
-    try: answer,sources=service.ask(request.question,request.top_k,request.source_filename)
+    try: answer,sources=service.ask(request.question,request.top_k,request.source_document_id)
     except LLMTimeoutError as exc: raise HTTPException(504,exc.message) from exc
     except LLMAPIError as exc: raise HTTPException(502,exc.message) from exc
     except Exception as exc:
