@@ -6,10 +6,10 @@ from app.vectorstore.chroma_store import StoredChunk
 from app.models.schemas import SourceCitation
 class SupabaseQAService:
     def __init__(self,user): self.db=SupabaseREST(user["access_token"]); self.embedder=Embedder(); self.generator=Generator()
-    def ask(self,question,top_k=None,source_filename=None):
+    def ask(self,question,top_k=None,source_document_id=None):
         did=None
-        if source_filename:
-            doc=self.db.get_doc(source_filename)
+        if source_document_id:
+            doc=self.db.get_doc_by_id(source_document_id)
             if not doc or doc["status"]!="ready": return "I could not find relevant information in your indexed documents.",[]
             did=doc["id"]
         rows=self.db.search(self.embedder.embed_query(question),top_k or 4,did)
