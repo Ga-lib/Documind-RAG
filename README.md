@@ -1,158 +1,136 @@
 # DocuMind RAG
 
-A Retrieval-Augmented Generation (RAG) application for PDF question-answering. Upload documents, retrieve relevant passages, and generate answers with source citations.
+DocuMind RAG is a PDF question-answering application. Users sign in, upload PDFs, and ask questions grounded in retrieved document passages with source citations.
 
-**Stack:** FastAPI, Sentence-Transformers, ChromaDB, Groq, Pydantic Settings, Docker.
+## Production architecture
+
+- **Frontend:** lightweight responsive browser UI served by FastAPI
+- **API:** FastAPI with authenticated document and question-answering routes
+- **Authentication:** Supabase Auth; API requests carry the signed-in user's access token
+- **File storage:** private Supabase Storage bucket
+- **Metadata and vectors:** Supabase Postgres with pgvector and row-level security
+- **Embeddings:** FastEmbed / ONNX Runtime to keep the service's memory footprint small
+- **Generation:** Groq API (configured through `GROQ_MODEL`)
+
+Document and chunk queries are scoped to the authenticated user. The vector-search function only returns chunks belonging to that user and to documents in the `ready` state.
 
 ## Features
 
-- PDF text extraction and configurable recursive/fixed chunking
-- Local embeddings using `all-MiniLM-L6-v2`
-- ChromaDB persistent vector storage
-- Similarity and Maximal Marginal Relevance (MMR) retrieval
-- Groq-powered answers with retrieved source citations
-- Content-hash duplicate detection and bounded PDF uploads
-- Optional API-key protection in development; required in production
-- Browser UI, Docker support, and pytest tests
+- Email sign-up, sign-in, and sign-out through Supabase Auth
+- PDF upload with a configurable size limit (20 MB by default)
+- PDF validation, text extraction, chunking, and embedding
+- Private per-user document storage
+- Duplicate filename and content detection per user
+- Document listing and deletion using stable document UUIDs
+- RAG question answering with source citations
+- Optional restriction of a question to one document using its UUID
+- Docker deployment and health endpoint
 
-## Architecture
+Scanned PDFs that contain only page images are not OCR-processed.
 
-```text
-Browser / API client
-       |
-     FastAPI ---- API-key dependency
-       |
-  Application services
-       |
- PDF loader -> Chunker -> Embedder -> ChromaDB
-                                  |
-Question -> Retriever -> Context -> Groq -> Answer + citations
+## Required services and configuration
+
+Create a Supabase project and a Groq API key. Configure the Supabase database schema, pgvector RPC, private Storage bucket, RLS policies, and Auth redirect URLs for the deployed application.
+
+Set these environment variables in the deployment environment:
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `GROQ_API_KEY` | Yes | Groq API access |
+| `SUPABASE_URL` | Yes | Supabase project URL |
+| `SUPABASE_ANON_KEY` | Yes | Supabase publishable key (safe for browser use) |
+| `SUPABASE_BUCKET` | No | Private Storage bucket; defaults to `documind-documents` |
+| `ENVIRONMENT` | Recommended | Set to `production` |
+| `GROQ_MODEL` | No | Generation model; defaults to `openai/gpt-oss-120b` |
+| `MAX_FILE_SIZE_MB` | No | Upload limit; defaults to `20` |
+| `TOP_K` | No | Default retrieval count; defaults to `4` |
+| `LOG_LEVEL` | No | Application log level; defaults to `INFO` |
+| `LOG_FORMAT` | No | `json` or `text`; defaults to `json` |
+| `SUPABASE_TIMEOUT_SECONDS` | No | Supabase request timeout; defaults to `20` |
+
+Never put a Supabase service-role key, secret key, database password, or user access token in frontend code or commit one to the repository. The browser only receives the Supabase URL and publishable key through `/config`.
+
+## Run locally
+
+1. Install Python 3.12 and create a virtual environment.
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Create a `.env` file with the required values:
+   ```dotenv
+   GROQ_API_KEY=your_groq_api_key
+   SUPABASE_URL=https://your-project-ref.supabase.co
+   SUPABASE_ANON_KEY=your_supabase_publishable_key
+   SUPABASE_BUCKET=documind-documents
+   ENVIRONMENT=development
+   ```
+4. Start the application:
+   ```bash
+   uvicorn app.main:app --reload
+   ```
+5. Open http://localhost:8000.
+
+For local authentication, add your local frontend origin to the Supabase Auth redirect URL allowlist. Use the actual local origin shown by your development server.
+
+## API overview
+
+Protected endpoints require:
+
+```http
+Authorization: Bearer <supabase-user-access-token>
 ```
 
-## Requirements
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/health` | Application health check |
+| `GET` | `/config` | Public frontend configuration (Supabase URL and publishable key only) |
+| `POST` | `/upload` | Upload and index a PDF as multipart field `file` |
+| `GET` | `/documents` | List the signed-in user's ready documents |
+| `DELETE` | `/documents/{document_id}` | Delete a document by UUID |
+| `POST` | `/ask` | Ask a question about the user's indexed documents |
 
-- Python 3.12
-- Groq API key: https://console.groq.com/keys
-- Docker (optional)
+Example question request:
 
-## Local setup
-
-```bash
-git clone https://github.com/Ga-lib/Documind-RAG.git
-cd Documind-RAG
-python -m venv .venv
-# Windows PowerShell:
-.venv\\Scripts\\Activate.ps1
-# macOS/Linux:
-# source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
+```json
+{
+  "question": "What are the main findings?",
+  "top_k": 4,
+  "source_document_id": "optional-document-uuid"
+}
 ```
 
-Add your Groq key to `.env`:
+The `source_document_id` field is optional. When supplied, retrieval is restricted to that document. Document IDs are returned by `GET /documents`.
 
-```dotenv
-GROQ_API_KEY=your_groq_api_key_here
-```
+Interactive API documentation is available at `/docs` when enabled by the deployment.
 
-Start the API:
+## Deployment
 
-```bash
-uvicorn app.main:app --reload
-```
+The repository includes a Dockerfile and is configured for deployment as a Render web service. Configure the environment variables above, use `/health` as the health-check path, and ensure the Supabase project has the required schema, policies, and private bucket before accepting user uploads.
 
-Open http://localhost:8000 for the UI and http://localhost:8000/docs for Swagger.
+The current hosted instance is:
 
-In development, the API key is optional. To protect a local instance, set `DOCUMIND_API_KEY` to a random secret of at least 24 characters. The UI will request it on first protected request and retain it only for the browser session.
+https://documind-rag-vled.onrender.com
 
-## Production configuration
+## Security notes and known limitations
 
-Set `ENVIRONMENT=production` (or set `app.environment: "production"` in `app/config/config.yaml`) and configure these environment variables in your deployment platform:
-
-```dotenv
-GROQ_API_KEY=your_groq_api_key
-ENVIRONMENT=production
-DOCUMIND_API_KEY=your_long_random_secret_at_least_24_chars
-```
-
-The application refuses to start in production without `DOCUMIND_API_KEY`. Protected endpoints require the `X-API-Key` header. Generate a secret with:
-
-```bash
-python -c "import secrets; print(secrets.token_urlsafe(32))"
-```
-
-This is a single shared API key, not multi-user authentication. Do not use it as a substitute for user accounts, per-user document isolation, rate limiting, or a managed identity system when serving multiple customers.
-
-## Docker
-
-```bash
-docker compose up --build -d
-```
-
-The Compose service reads `.env` and persists the `data/` directory. Ensure your deployment platform mounts persistent storage at `/app/data`; otherwise the ChromaDB index can be lost when the container is replaced.
-
-## API
-
-When API-key protection is enabled, include `X-API-Key` on protected requests.
-
-Upload a PDF:
-
-```bash
-curl -X POST http://localhost:8000/upload \\
-  -H "X-API-Key: $DOCUMIND_API_KEY" \\
-  -F "file=@document.pdf"
-```
-
-Ask a question:
-
-```bash
-curl -X POST http://localhost:8000/ask \\
-  -H "X-API-Key: $DOCUMIND_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{"question":"What does this document discuss?"}'
-```
-
-List documents:
-
-```bash
-curl http://localhost:8000/documents -H "X-API-Key: $DOCUMIND_API_KEY"
-```
-
-Delete a document:
-
-```bash
-curl -X DELETE "http://localhost:8000/documents/document.pdf" \\
-  -H "X-API-Key: $DOCUMIND_API_KEY"
-```
-
-Health check is intentionally unauthenticated at `/health`. Interactive API documentation is available at `/docs`.
-
-## Configuration
-
-Non-secret settings are in `app/config/config.yaml`. Secrets belong in environment variables or `.env`; never commit `.env`.
-
-Important settings include:
-
-- `chunking.strategy`, `chunk_size`, and `chunk_overlap`
-- `embeddings.model_name` and `batch_size`
-- `retrieval.search_type`, `top_k`, and `mmr_diversity`
-- `llm.model`, `temperature`, `max_tokens`, and `timeout_seconds`
-- `upload.max_file_size_mb`
+- Keep the Supabase Storage bucket private.
+- Keep RLS enabled on the document and chunk tables. Policies must enforce ownership using the authenticated user's ID.
+- Do not expose privileged Supabase keys in the browser.
+- Leaked-password protection is a Supabase Auth project setting and depends on the Supabase plan.
+- Rate limiting, per-user quotas, billing, and an administrative console are not yet implemented.
+- OCR for scanned/image-only PDFs is not implemented.
+- RAG quality still needs evaluation against a representative question-and-answer dataset.
+- The current Render service uses the free plan; cold starts and resource limits may affect response time.
 
 ## Tests
+
+Install the development dependencies and run:
 
 ```bash
 pip install -r requirements-dev.txt
 pytest
 ```
-
-## Known limitations
-
-- PDF image OCR is not implemented; scanned PDFs without a text layer are rejected.
-- Authentication is a single shared API key; no user accounts or per-user data partitioning.
-- No rate limiting or request quotas are included.
-- ChromaDB is suitable for a small single-instance deployment; multi-replica deployments need a shared vector database.
-- RAG answer quality still needs a representative evaluation dataset and measured retrieval/generation metrics.
 
 ## License
 
