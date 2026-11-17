@@ -22,33 +22,141 @@ const authSubmit = document.getElementById('authSubmit');
 const authToggle = document.getElementById('authToggle');
 const authSignout = document.getElementById('authSignout');
 let authMode = 'signin';
+let recoveryMode = false;
+let resetRequestMode = false;
+const authForgot = document.getElementById('authForgot');
+const authRecoveryPanel = document.getElementById('authRecoveryPanel');
+const authNewPassword = document.getElementById('authNewPassword');
+const authConfirmPassword = document.getElementById('authConfirmPassword');
+const authUpdatePassword = document.getElementById('authUpdatePassword');
+
+function updateAuthUI() {
+  const signed = Boolean(currentSession && currentSession.access_token);
+  if (authRecoveryPanel) authRecoveryPanel.hidden = !recoveryMode;
+  if (authForm) authForm.hidden = signed || recoveryMode;
+  if (authSignout) authSignout.hidden = !signed || recoveryMode;
+  if (authStatus) {
+    authStatus.textContent = recoveryMode
+      ? 'Choose a new password for your account.'
+      : signed
+        ? 'Signed in: ' + (currentSession.user.email || 'account')
+        : 'Sign in or create an account to access private documents.';
+  }
+  if (!signed) clearDocuments();
+}
+function clearDocuments() {
+  if (docList) docList.innerHTML = '<li class="text-sm italic text-slate-500">Sign in to see your documents.</li>';
+  if (docFilter) docFilter.innerHTML = '<option value="">All documents</option>';
+}
+function setAuthMode(mode) {
+  authMode = mode;
+  resetRequestMode = mode === 'reset';
+  authPassword.hidden = resetRequestMode;
+  authPassword.required = !resetRequestMode;
+  authToggle.hidden = resetRequestMode;
+  authForgot.hidden = resetRequestMode || mode === 'signup';
+  authSubmit.textContent = mode === 'signup' ? 'Create account' : mode === 'reset' ? 'Send reset link' : 'Sign in';
+  authToggle.textContent = mode === 'signin' ? 'Create account' : 'I already have an account';
+  if (authStatus) authStatus.textContent = mode === 'reset'
+    ? 'Enter your account email. We will send a reset link if an account matches.'
+    : mode === 'signup'
+      ? 'Create an account with your email and a password.'
+      : 'Sign in or create an account to access private documents.';
+}
+authToggle && authToggle.addEventListener('click', () => setAuthMode(authMode === 'signin' ? 'signup' : 'signin'));
+authForgot && authForgot.addEventListener('click', () => setAuthMode('reset'));
+
 async function initAuth() {
   try {
     const cfg = await (await fetch('/config')).json();
     if (!cfg.supabase_url || !cfg.supabase_anon_key || !window.supabase) throw new Error('Auth configuration unavailable');
     supabaseClient = window.supabase.createClient(cfg.supabase_url, cfg.supabase_anon_key);
-    const state = await supabaseClient.auth.getSession(); currentSession = state.data.session; updateAuthUI();
-    supabaseClient.auth.onAuthStateChange((_event, session) => { currentSession = session; updateAuthUI(); if (session) loadDocuments(); else clearDocuments(); });
-  } catch (e) { if (authStatus) authStatus.textContent = e.message; }
+    const state = await supabaseClient.auth.getSession();
+    currentSession = state.data.session;
+    updateAuthUI();
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+      currentSession = session;
+      if (event === 'PASSWORD_RECOVERY') {
+        recoveryMode = true;
+        if (authStatus) authStatus.textContent = 'Choose a new password for your account.';
+      } else if (event === 'SIGNED_OUT') {
+        recoveryMode = false;
+      }
+      updateAuthUI();
+      if (session && !recoveryMode) loadDocuments();
+      else if (!session) clearDocuments();
+    });
+  } catch (e) {
+    if (authStatus) authStatus.textContent = e.message || 'Could not initialize secure sign-in.';
+  }
 }
-function updateAuthUI() {
-  const signed = Boolean(currentSession && currentSession.access_token);
-  if (authForm) authForm.hidden = signed; if (authSignout) authSignout.hidden = !signed;
-  if (authStatus) authStatus.textContent = signed ? 'Signed in: ' + (currentSession.user.email || 'account') : 'Sign in or create an account to access private documents.';
-  if (!signed) clearDocuments();
-}
-function clearDocuments() { if (docList) docList.innerHTML = '<li class="text-sm italic text-slate-500">Sign in to see your documents.</li>'; if (docFilter) docFilter.innerHTML = '<option value="">All documents</option>'; }
-authToggle && authToggle.addEventListener('click', () => { authMode = authMode === 'signin' ? 'signup' : 'signin'; authSubmit.textContent = authMode === 'signin' ? 'Sign in' : 'Create account'; authToggle.textContent = authMode === 'signin' ? 'Create account' : 'I already have an account'; });
+
 authForm && authForm.addEventListener('submit', async (e) => {
-  e.preventDefault(); authSubmit.disabled = true;
-  try { const creds = {email: authEmail.value.trim(), password: authPassword.value};
-    const result = authMode === 'signin' ? await supabaseClient.auth.signInWithPassword(creds) : await supabaseClient.auth.signUp({ ...creds, options: { emailRedirectTo: window.location.origin } });
+  e.preventDefault();
+  if (!supabaseClient) { authStatus.textContent = 'Secure sign-in is not ready. Refresh and try again.'; return; }
+  authSubmit.disabled = true;
+  try {
+    const email = authEmail.value.trim();
+    if (resetRequestMode) {
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+      if (error) throw error;
+      authStatus.textContent = 'If an account exists for this email, a password reset link has been sent. Check your inbox and spam folder.';
+      authSubmit.textContent = 'Send another link';
+      return;
+    }
+    const creds = { email, password: authPassword.value };
+    const result = authMode === 'signin'
+      ? await supabaseClient.auth.signInWithPassword(creds)
+      : await supabaseClient.auth.signUp({ ...creds, options: { emailRedirectTo: window.location.origin } });
     if (result.error) throw result.error;
-    if (authMode === 'signup' && !result.data.session) authStatus.textContent = 'Check your email to confirm your account, then sign in.';
-    else { currentSession = result.data.session; updateAuthUI(); await loadDocuments(); }
-  } catch (e) { authStatus.textContent = e.message || 'Authentication failed.'; } finally { authSubmit.disabled = false; }
+    if (authMode === 'signup' && !result.data.session) {
+      authStatus.textContent = 'Check your email to confirm your account, then sign in.';
+    } else {
+      currentSession = result.data.session;
+      updateAuthUI();
+      await loadDocuments();
+    }
+  } catch (e) {
+    authStatus.textContent = e.message || 'Authentication failed.';
+  } finally {
+    authSubmit.disabled = false;
+  }
 });
-authSignout && authSignout.addEventListener('click', async () => { if (supabaseClient) await supabaseClient.auth.signOut(); });
+
+authUpdatePassword && authUpdatePassword.addEventListener('click', async () => {
+  const password = authNewPassword.value;
+  if (password.length < 8) {
+    authStatus.textContent = 'Use a password with at least 8 characters.';
+    return;
+  }
+  if (password !== authConfirmPassword.value) {
+    authStatus.textContent = 'The passwords do not match.';
+    return;
+  }
+  authUpdatePassword.disabled = true;
+  try {
+    const { error } = await supabaseClient.auth.updateUser({ password });
+    if (error) throw error;
+    recoveryMode = false;
+    resetRequestMode = false;
+    authNewPassword.value = '';
+    authConfirmPassword.value = '';
+    authPassword.value = '';
+    updateAuthUI();
+    authStatus.textContent = 'Password updated. You are now signed in.';
+    await loadDocuments();
+  } catch (e) {
+    authStatus.textContent = e.message || 'Could not update your password. Request a new reset link and try again.';
+  } finally {
+    authUpdatePassword.disabled = false;
+  }
+});
+
+authSignout && authSignout.addEventListener('click', async () => {
+  if (supabaseClient) await supabaseClient.auth.signOut();
+});
 async function apiFetch(url, options = {}) { const headers = new Headers(options.headers || {}); if (currentSession && currentSession.access_token) headers.set('Authorization', 'Bearer ' + currentSession.access_token); return fetch(url, {...options, headers}); }
 
 async function checkHealth() {
